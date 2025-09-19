@@ -18,7 +18,6 @@ class StationDetailScreen extends ConsumerStatefulWidget {
 
 class _StationDetailScreenState extends ConsumerState<StationDetailScreen> {
   String? _selectedTankId;
-  int _selectedRangeIndex = 1; // default to 1W
 
   @override
   Widget build(BuildContext context) {
@@ -62,9 +61,6 @@ class _StationDetailScreenState extends ConsumerState<StationDetailScreen> {
               station: station,
               selectedTankId: _selectedTankId,
               onSelectTank: (value) => setState(() => _selectedTankId = value),
-              selectedRangeIndex: _selectedRangeIndex,
-              onSelectRange: (value) =>
-                  setState(() => _selectedRangeIndex = value),
             );
           },
           loading: () => const Center(child: CircularProgressIndicator()),

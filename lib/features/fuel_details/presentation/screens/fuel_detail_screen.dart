@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:gazstation/core/theme/app_theme.dart';
 import 'package:gazstation/features/home/presentation/providers/gas_stations_providers.dart';
 import 'package:gazstation/features/fuel_details/presentation/widgets/fuel_centered_message.dart';
-import 'package:gazstation/features/fuel_details/presentation/widgets/fuel_metric_block.dart';
-import 'package:gazstation/features/fuel_details/presentation/widgets/fuel_tank_gauge.dart';
-import 'package:gazstation/features/fuel_details/presentation/widgets/fuel_threshold_row.dart';
-import 'package:gazstation/core/theme/app_theme.dart';
+import 'package:gazstation/features/fuel_details/presentation/widgets/fuel_header_card.dart';
+import 'package:gazstation/features/fuel_details/presentation/widgets/fuel_summary_table.dart';
+import 'package:gazstation/features/station_details/presentation/widgets/tank_snapshot.dart';
 
 class FuelDetailScreen extends ConsumerWidget {
   const FuelDetailScreen({
@@ -27,9 +27,25 @@ class FuelDetailScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(appBarTitle),
+        backgroundColor: AppTheme.navy,
+        elevation: 0,
+        toolbarHeight: 84,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
+        ),
+        titleSpacing: 0,
+        title: Padding(
+          padding: const EdgeInsets.only(left: 8),
+          child: Text(
+            appBarTitle,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new),
+          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
           onPressed: () => context.pop(),
         ),
       ),
@@ -43,124 +59,24 @@ class FuelDetailScreen extends ConsumerWidget {
                     'Impossible de localiser ce carburant pour la station sélectionnée.',
               );
             }
-            final theme = Theme.of(context);
             final summary = tank.summary;
 
             return SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(28),
-                    ),
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(tank.label, style: theme.textTheme.titleSmall),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: FuelMetricBlock(
-                                label: 'Volume (litre)',
-                                value:
-                                    '${tank.currentVolumeLiters.toStringAsFixed(0)} L',
-                              ),
-                            ),
-                            Expanded(
-                              child: FuelMetricBlock(
-                                label: 'Niveau',
-                                value:
-                                    '${tank.currentHeightCm.toStringAsFixed(0)} mm',
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 24),
-                        FuelThresholdRow(
-                          label: 'Min',
-                          value: '${summary.minVolume.toStringAsFixed(0)} L',
-                          icon: Icons.arrow_downward,
-                          color: const Color(0xFFE57373),
-                        ),
-                        FuelThresholdRow(
-                          label: 'Max',
-                          value: '${summary.maxVolume.toStringAsFixed(0)} L',
-                          icon: Icons.arrow_upward,
-                          color: const Color(0xFF66BB6A),
-                        ),
-                        FuelThresholdRow(
-                          label: 'Commencer par',
-                          value: '${summary.startVolume.toStringAsFixed(0)} L',
-                          icon: Icons.play_arrow_rounded,
-                          color: AppTheme.navy,
-                        ),
-                        FuelThresholdRow(
-                          label: 'Terminer',
-                          value: '${summary.endVolume.toStringAsFixed(0)} L',
-                          icon: Icons.flag_rounded,
-                          color: AppTheme.gold,
-                        ),
-                        const SizedBox(height: 16),
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF6F7FB),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    'La différence',
-                                    style: theme.textTheme.bodySmall,
-                                  ),
-                                  Text(
-                                    '${summary.totalDifference.toStringAsFixed(0)} L',
-                                    style: theme.textTheme.titleSmall,
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                'Le total est entre le 23/05/2024 09:41 et le 24/05/2024 09:41',
-                                style: theme.textTheme.bodySmall,
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: FuelMetricBlock(
-                                label: 'Achat',
-                                value:
-                                    '${summary.totalPurchase.toStringAsFixed(0)} L',
-                              ),
-                            ),
-                            Expanded(
-                              child: FuelMetricBlock(
-                                label: 'Vente',
-                                value:
-                                    '${summary.totalSale.toStringAsFixed(0)} L',
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 32),
-                        FuelTankGauge(percent: tank.fillPercent),
-                      ],
-                    ),
+                  FuelHeaderCard(
+                    label: tank.label,
+                    capacity: '${tank.capacityLiters.toStringAsFixed(0)} L',
+                    volume: '${tank.currentVolumeLiters.toStringAsFixed(0)} L',
+                    height: '${tank.currentHeightCm.toStringAsFixed(0)} mm',
+                    lastSync: _formatDate(tank.lastSync),
                   ),
+                  const SizedBox(height: 20),
+                  FuelSummaryTable(summary: summary),
+                  const SizedBox(height: 20),
+                  const SizedBox(height: 20),
+                  TankSnapshot(tank: tank, onSeeDetails: () {}),
                 ],
               ),
             );
@@ -174,4 +90,13 @@ class FuelDetailScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+String _formatDate(DateTime dateTime) {
+  final day = dateTime.day.toString().padLeft(2, '0');
+  final month = dateTime.month.toString().padLeft(2, '0');
+  final year = dateTime.year;
+  final hour = dateTime.hour.toString().padLeft(2, '0');
+  final minute = dateTime.minute.toString().padLeft(2, '0');
+  return '$day/$month/$year $hour:$minute';
 }

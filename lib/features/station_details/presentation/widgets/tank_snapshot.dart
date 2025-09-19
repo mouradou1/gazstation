@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:gazstation/core/theme/app_theme.dart';
-import '../../../home/domain/entities/gas_station.dart';
+import 'package:gazstation/features/home/domain/entities/gas_station.dart';
 
 class TankSnapshot extends StatelessWidget {
   const TankSnapshot({
@@ -16,6 +16,7 @@ class TankSnapshot extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final percent = tank.fillPercent.clamp(0.0, 1.0);
+    final percentLabel = '${(percent * 100).toStringAsFixed(0)}%';
     final isLow = percent <= tank.warningThresholdPercent;
 
     return Container(
@@ -85,19 +86,13 @@ class TankSnapshot extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 32),
-
-          _HorizontalTankGauge(
-            tank: tank,
-          ),
+          _HorizontalTankGauge(tank: tank, percentLabel: percentLabel),
           const SizedBox(height: 18),
-
           Align(
             alignment: Alignment.centerRight,
             child: TextButton.icon(
               onPressed: onSeeDetails,
-              style: TextButton.styleFrom(
-                foregroundColor: AppTheme.navy,
-              ),
+              style: TextButton.styleFrom(foregroundColor: AppTheme.navy),
               icon: const Icon(Icons.arrow_forward_ios, size: 16),
               label: const Text('Afficher plus'),
             ),
@@ -109,11 +104,10 @@ class TankSnapshot extends StatelessWidget {
 }
 
 class _HorizontalTankGauge extends StatelessWidget {
-  const _HorizontalTankGauge({
-    required this.tank,
-  });
+  const _HorizontalTankGauge({required this.tank, required this.percentLabel});
 
   final FuelTank tank;
+  final String percentLabel;
 
   String _formatDate(DateTime dateTime) {
     final day = dateTime.day.toString().padLeft(2, '0');
@@ -137,8 +131,7 @@ class _HorizontalTankGauge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final percent = tank.fillPercent;
-    final percentLabel = '${(percent * 100).toStringAsFixed(0)}%'; // **2) Donnée pour le pourcentage**
+    final percent = tank.fillPercent.clamp(0.0, 1.0);
     final gaugeColor = _getGaugeColor(percent);
 
     return SizedBox(
@@ -147,7 +140,6 @@ class _HorizontalTankGauge extends StatelessWidget {
         alignment: Alignment.center,
         clipBehavior: Clip.none,
         children: [
-          // Le corps du réservoir (jauge)
           Positioned(
             bottom: 0,
             left: 0,
@@ -162,22 +154,18 @@ class _HorizontalTankGauge extends StatelessWidget {
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  // Remplissage vertical
                   Align(
                     alignment: Alignment.bottomCenter,
                     child: FractionallySizedBox(
                       heightFactor: percent,
-                      widthFactor: 1.0, // Assure que ça prend toute la largeur
-                      child: Container(
-                        color: gaugeColor,
-                      ),
+                      widthFactor: 1.0,
+                      child: Container(color: gaugeColor),
                     ),
                   ),
-                  // **2) Affichage du pourcentage à l'intérieur**
                   Text(
                     percentLabel,
                     style: theme.textTheme.titleMedium?.copyWith(
-                      color: percent <= 0.10 ? Colors.white : Colors.black,
+                      color: Colors.black,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -185,27 +173,26 @@ class _HorizontalTankGauge extends StatelessWidget {
               ),
             ),
           ),
-
-          // **1) Connexion entre le bouchon et la carte de détails**
           Positioned(
-            top: 25, // Ajusté pour être précis
-            right: 80, // Ajusté pour être précis
+            top: 25,
+            right: 80,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // La ligne de connexion
                 Container(
-                  height: 15, // hauteur de la ligne
+                  height: 15,
                   width: 1.5,
                   color: const Color(0xFFBDBDBD),
                 ),
-                // Le bouchon du réservoir
                 Container(
                   height: 20,
                   width: 30,
                   decoration: BoxDecoration(
                     color: const Color(0xFFF5F6FA),
-                    border: Border.all(color: const Color(0xFFE0E0E0), width: 1.5),
+                    border: Border.all(
+                      color: const Color(0xFFE0E0E0),
+                      width: 1.5,
+                    ),
                     borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(8),
                     ),
@@ -214,8 +201,6 @@ class _HorizontalTankGauge extends StatelessWidget {
               ],
             ),
           ),
-
-          // Carte des détails
           Positioned(
             top: -15,
             right: 0,
@@ -231,13 +216,19 @@ class _HorizontalTankGauge extends StatelessWidget {
                     const SizedBox(width: 8),
                     Text(
                       _formatDate(tank.lastSync),
-                      style: theme.textTheme.bodySmall?.copyWith(fontSize: 11, fontWeight: FontWeight.w600),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 4),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
@@ -255,12 +246,16 @@ class _HorizontalTankGauge extends StatelessWidget {
                     children: [
                       Text(
                         '${tank.currentVolumeLiters.toStringAsFixed(0)} L',
-                        style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         '${tank.currentHeightCm.toStringAsFixed(0)} cm',
-                        style: theme.textTheme.bodySmall?.copyWith(color: const Color(0xFF9AA1B0)),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: const Color(0xFF9AA1B0),
+                        ),
                       ),
                     ],
                   ),
@@ -289,10 +284,7 @@ class _StatusDot extends StatelessWidget {
         color: color,
         shape: BoxShape.circle,
         boxShadow: [
-          BoxShadow(
-            color: color.withOpacity(0.4),
-            blurRadius: 8,
-          ),
+          BoxShadow(color: color.withValues(alpha: 0.4), blurRadius: 8),
         ],
       ),
     );

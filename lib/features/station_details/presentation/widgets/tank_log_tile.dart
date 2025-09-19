@@ -23,11 +23,11 @@ class TankLogTile extends StatelessWidget {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(vertical: 10),
+          padding: const EdgeInsets.symmetric(vertical: 14),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                flex: 3,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -35,62 +35,42 @@ class TankLogTile extends StatelessWidget {
                       _formatDate(entry.dateTime),
                       style: theme.textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w600,
+                        letterSpacing: 0.3,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${entry.volumeLiters.toStringAsFixed(0)} L',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: const Color(0xFF9AA1B0),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                flex: 2,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${entry.heightCm.toStringAsFixed(0)} cm',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Hauteur',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: const Color(0xFF9AA1B0),
-                      ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Text(
+                          '${entry.volumeLiters.toStringAsFixed(0)}L',
+                          style: theme.textTheme.bodySmall,
+                        ),
+                        const SizedBox(width: 18),
+                        Text(
+                          '${entry.heightCm.toStringAsFixed(0)} cm',
+                          style: theme.textTheme.bodySmall,
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: chipColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(chipIcon, size: 16, color: chipColor),
-                    const SizedBox(width: 6),
-                    Text(
-                      '${entry.variationPercent.abs().toStringAsFixed(0)}%',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: chipColor,
-                        fontWeight: FontWeight.w700,
-                      ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    _formatTime(entry.dateTime),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.w600,
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 8),
+                  _VariationChip(
+                    color: chipColor,
+                    icon: chipIcon,
+                    percent: entry.variationPercent,
+                  ),
+                ],
               ),
             ],
           ),
@@ -104,8 +84,49 @@ class TankLogTile extends StatelessWidget {
     final day = dateTime.day.toString().padLeft(2, '0');
     final month = dateTime.month.toString().padLeft(2, '0');
     final year = dateTime.year;
+    return '$day.$month.$year';
+  }
+
+  String _formatTime(DateTime dateTime) {
     final hour = dateTime.hour.toString().padLeft(2, '0');
     final minute = dateTime.minute.toString().padLeft(2, '0');
-    return '$day.$month.$year  $hour:$minute';
+    return '$hour:$minute';
+  }
+}
+
+class _VariationChip extends StatelessWidget {
+  const _VariationChip({
+    required this.color,
+    required this.icon,
+    required this.percent,
+  });
+
+  final Color color;
+  final IconData icon;
+  final double percent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            percent.abs().toStringAsFixed(0),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Icon(icon, size: 16, color: color),
+        ],
+      ),
+    );
   }
 }

@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:gazstation/core/navigation/app_router.dart';
-import 'package:gazstation/core/theme/app_theme.dart';
 import 'package:gazstation/features/home/domain/entities/gas_station.dart';
-import 'package:gazstation/features/station_details/presentation/widgets/range_selector.dart';
+import 'package:gazstation/features/station_details/presentation/widgets/fuel_trend_chart_card.dart';
 import 'package:gazstation/features/station_details/presentation/widgets/tank_log_tile.dart';
 import 'package:gazstation/features/station_details/presentation/widgets/tank_snapshot.dart';
 
@@ -13,15 +12,11 @@ class StationDetailContent extends StatelessWidget {
     required this.station,
     required this.selectedTankId,
     required this.onSelectTank,
-    required this.selectedRangeIndex,
-    required this.onSelectRange,
   });
 
   final GasStation station;
   final String? selectedTankId;
   final ValueChanged<String> onSelectTank;
-  final int selectedRangeIndex;
-  final ValueChanged<int> onSelectRange;
 
   @override
   Widget build(BuildContext context) {
@@ -118,21 +113,7 @@ class StationDetailContent extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Historique',
-                              style: Theme.of(context).textTheme.titleSmall
-                                  ?.copyWith(fontWeight: FontWeight.w700),
-                            ),
-                            RangeSelector(
-                              selectedIndex: selectedRangeIndex,
-                              onChanged: onSelectRange,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 14),
+                        const SizedBox(height: 6),
                         if (fuelTank.logs.isEmpty)
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: 12),
@@ -153,28 +134,7 @@ class StationDetailContent extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  Container(
-                    height: 190,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(28),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x0F000000),
-                          offset: Offset(0, 10),
-                          blurRadius: 22,
-                        ),
-                      ],
-                    ),
-                    alignment: Alignment.center,
-                    child: const Text(
-                      'Graphique à venir',
-                      style: TextStyle(
-                        color: AppTheme.navy,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
+                  const FuelTrendChartCard(),
                 ],
               ),
             ),
