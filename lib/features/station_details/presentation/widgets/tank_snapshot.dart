@@ -7,10 +7,12 @@ class TankSnapshot extends StatelessWidget {
     super.key,
     required this.tank,
     required this.onSeeDetails,
+    this.showSeeDetails = true,
   });
 
   final FuelTank tank;
   final VoidCallback onSeeDetails;
+  final bool showSeeDetails;
 
   @override
   Widget build(BuildContext context) {
@@ -88,15 +90,16 @@ class TankSnapshot extends StatelessWidget {
           const SizedBox(height: 32),
           _HorizontalTankGauge(tank: tank, percentLabel: percentLabel),
           const SizedBox(height: 18),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              onPressed: onSeeDetails,
-              style: TextButton.styleFrom(foregroundColor: AppTheme.navy),
-              icon: const Icon(Icons.arrow_forward_ios, size: 16),
-              label: const Text('Afficher plus'),
+          if (showSeeDetails)
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: onSeeDetails,
+                style: TextButton.styleFrom(foregroundColor: AppTheme.navy),
+                icon: const Icon(Icons.arrow_forward_ios, size: 16),
+                label: const Text('Afficher plus'),
+              ),
             ),
-          ),
         ],
       ),
     );

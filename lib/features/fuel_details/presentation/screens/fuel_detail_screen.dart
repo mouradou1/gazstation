@@ -75,8 +75,11 @@ class FuelDetailScreen extends ConsumerWidget {
                   const SizedBox(height: 20),
                   FuelSummaryTable(summary: summary),
                   const SizedBox(height: 20),
-                  const SizedBox(height: 20),
-                  TankSnapshot(tank: tank, onSeeDetails: () {}),
+                  TankSnapshot(
+                    tank: tank,
+                    onSeeDetails: () {},
+                    showSeeDetails: false,
+                  ),
                 ],
               ),
             );
