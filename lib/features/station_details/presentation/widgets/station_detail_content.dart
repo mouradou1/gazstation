@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:gazstation/core/navigation/app_router.dart';
@@ -117,22 +119,7 @@ class StationDetailContent extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const SizedBox(height: 6),
-                        if (fuelTank.logs.isEmpty)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            child: Text(
-                              'Pas de mouvements enregistrés récemment.',
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                          )
-                        else
-                          ...fuelTank.logs.asMap().entries.map(
-                            (entry) => TankLogTile(
-                              entry: entry.value,
-                              showDivider:
-                                  entry.key != fuelTank.logs.length - 1,
-                            ),
-                          ),
+                        _PaginatedTankLogs(logs: fuelTank.logs),
                       ],
                     ),
                   ),
@@ -144,6 +131,119 @@ class StationDetailContent extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+class _PaginatedTankLogs extends StatefulWidget {
+  const _PaginatedTankLogs({required this.logs});
+
+  final List<TankLogEntry> logs;
+
+  @override
+  State<_PaginatedTankLogs> createState() => _PaginatedTankLogsState();
+}
+
+class _PaginatedTankLogsState extends State<_PaginatedTankLogs> {
+  static const _itemsPerPage = 5;
+  int _currentPage = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.logs.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Text(
+          'Pas de mouvements enregistrés récemment.',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      );
+    }
+
+    final totalPages = (widget.logs.length / _itemsPerPage).ceil();
+    final currentPage = _currentPage < 0
+        ? 0
+        : (_currentPage >= totalPages ? totalPages - 1 : _currentPage);
+
+    if (currentPage != _currentPage) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() => _currentPage = currentPage);
+        }
+      });
+    }
+
+    final startIndex = currentPage * _itemsPerPage;
+    final endIndex = math.min(startIndex + _itemsPerPage, widget.logs.length);
+    final visibleLogs = widget.logs.sublist(startIndex, endIndex);
+
+    return Column(
+      children: [
+        ...visibleLogs.asMap().entries.map((entry) {
+          final globalIndex = startIndex + entry.key;
+          return TankLogTile(
+            entry: entry.value,
+            showDivider: globalIndex != widget.logs.length - 1,
+          );
+        }),
+        const SizedBox(height: 8),
+        if (totalPages > 1)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _PaginationButton(
+                icon: Icons.chevron_left,
+                enabled: currentPage > 0,
+                onPressed: currentPage > 0
+                    ? () => setState(() => _currentPage = currentPage - 1)
+                    : null,
+              ),
+              Text(
+                'Page ${currentPage + 1} / $totalPages',
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+              ),
+              _PaginationButton(
+                icon: Icons.chevron_right,
+                enabled: currentPage < totalPages - 1,
+                onPressed: currentPage < totalPages - 1
+                    ? () => setState(() => _currentPage = currentPage + 1)
+                    : null,
+              ),
+            ],
+          ),
+      ],
+    );
+  }
+}
+
+class _PaginationButton extends StatelessWidget {
+  const _PaginationButton({
+    required this.icon,
+    required this.enabled,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final bool enabled;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      onPressed: enabled ? onPressed : null,
+      style: IconButton.styleFrom(
+        backgroundColor: enabled
+            ? const Color(0xFFEFF2FA)
+            : const Color(0xFFF5F6FA),
+        foregroundColor: enabled
+            ? const Color(0xFF2F3038)
+            : const Color(0xFFB9BFCD),
+        minimumSize: const Size(36, 36),
+        shape: const CircleBorder(),
+      ),
+      icon: Icon(icon, size: 20),
     );
   }
 }
