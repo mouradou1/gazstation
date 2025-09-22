@@ -87,6 +87,7 @@ class _FuelTrendChartCardState extends State<FuelTrendChartCard> {
           const SizedBox(height: 16),
           SizedBox(
             height: 200,
+            width: double.infinity,
             child: CustomPaint(
               painter: _FuelTrendPainter(
                 points: dataPoints,
