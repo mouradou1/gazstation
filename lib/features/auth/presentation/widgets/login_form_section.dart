@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 class LoginFormSection extends StatelessWidget {
   const LoginFormSection({
     super.key,
+    required this.baseUrlController,
     required this.emailController,
     required this.passwordController,
     required this.obscurePassword,
@@ -10,6 +11,7 @@ class LoginFormSection extends StatelessWidget {
     required this.onSubmit,
   });
 
+  final TextEditingController baseUrlController;
   final TextEditingController emailController;
   final TextEditingController passwordController;
   final bool obscurePassword;
@@ -24,6 +26,17 @@ class LoginFormSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Text('URL du serveur', style: theme.textTheme.bodyMedium),
+          const SizedBox(height: 8),
+          TextField(
+            controller: baseUrlController,
+            keyboardType: TextInputType.url,
+            decoration: const InputDecoration(
+              hintText: 'https://mon-serveur.com',
+              prefixIcon: Icon(Icons.link),
+            ),
+          ),
+          const SizedBox(height: 20),
           Text('Email', style: theme.textTheme.bodyMedium),
           const SizedBox(height: 8),
           TextField(

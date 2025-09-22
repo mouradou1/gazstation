@@ -8,11 +8,15 @@ class TankSnapshot extends StatelessWidget {
     required this.tank,
     required this.onSeeDetails,
     this.showSeeDetails = true,
+    this.onTap,
+    this.isSelected = false,
   });
 
   final FuelTank tank;
   final VoidCallback onSeeDetails;
   final bool showSeeDetails;
+  final VoidCallback? onTap;
+  final bool isSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -21,86 +25,104 @@ class TankSnapshot extends StatelessWidget {
     final percentLabel = '${(percent * 100).toStringAsFixed(0)}%';
     final isLow = percent <= tank.warningThresholdPercent;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x14000000),
-            offset: Offset(0, 12),
-            blurRadius: 24,
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text.rich(
-                      TextSpan(
-                        text: '${tank.label} ',
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                        children: [
-                          TextSpan(
-                            text: '${tank.capacityLiters.toStringAsFixed(0)}L',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: const Color(0xFF707A8A),
-                              fontWeight: FontWeight.normal,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    if (isLow)
-                      Row(
-                        children: const [
-                          Icon(
-                            Icons.error_outline,
-                            color: Color(0xFFE74C3C),
-                            size: 18,
-                          ),
-                          SizedBox(width: 6),
-                          Text(
-                            'Alerte rupture de stock',
-                            style: TextStyle(
-                              color: Color(0xFFE74C3C),
-                              fontWeight: FontWeight.w600,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                  ],
-                ),
+    final borderRadius = BorderRadius.circular(28);
+    final borderColor = isSelected ? AppTheme.navy : Colors.transparent;
+
+    return Material(
+      color: Colors.transparent,
+      borderRadius: borderRadius,
+      child: InkWell(
+        borderRadius: borderRadius,
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: borderRadius,
+            border: Border.all(
+              color: borderColor,
+              width: isSelected ? 2 : 0,
+            ),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x14000000),
+                offset: Offset(0, 12),
+                blurRadius: 24,
               ),
-              _StatusDot(isLow: isLow),
             ],
           ),
-          const SizedBox(height: 32),
-          _HorizontalTankGauge(tank: tank, percentLabel: percentLabel),
-          const SizedBox(height: 18),
-          if (showSeeDetails)
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                onPressed: onSeeDetails,
-                style: TextButton.styleFrom(foregroundColor: AppTheme.navy),
-                icon: const Icon(Icons.arrow_forward_ios, size: 16),
-                label: const Text('Afficher plus'),
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text.rich(
+                          TextSpan(
+                            text: '${tank.label} ',
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                            children: [
+                              TextSpan(
+                                text:
+                                    '${tank.capacityLiters.toStringAsFixed(0)}L',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: const Color(0xFF707A8A),
+                                  fontWeight: FontWeight.normal,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        if (isLow)
+                          Row(
+                            children: const [
+                              Icon(
+                                Icons.error_outline,
+                                color: Color(0xFFE74C3C),
+                                size: 18,
+                              ),
+                              SizedBox(width: 6),
+                              Text(
+                                'Alerte rupture de stock',
+                                style: TextStyle(
+                                  color: Color(0xFFE74C3C),
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
+                  ),
+                  _StatusDot(isLow: isLow),
+                ],
               ),
-            ),
-        ],
+              const SizedBox(height: 32),
+              _HorizontalTankGauge(tank: tank, percentLabel: percentLabel),
+              const SizedBox(height: 18),
+              if (showSeeDetails)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    onPressed: onSeeDetails,
+                    style:
+                        TextButton.styleFrom(foregroundColor: AppTheme.navy),
+                    icon: const Icon(Icons.arrow_forward_ios, size: 16),
+                    label: const Text('Afficher plus'),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }

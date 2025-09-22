@@ -62,37 +62,34 @@ class _RangeTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.start,
-      children: ranges.asMap().entries.map((entry) {
-        final index = entry.key;
-        final label = entry.value;
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: List.generate(ranges.length, (index) {
+        final label = ranges[index];
         final isSelected = index == selectedIndex;
-        return Padding(
-          padding: const EdgeInsets.only(right: 8),
-          child: ChoiceChip(
-            label: Text(label),
-            selected: isSelected,
-            onSelected: (_) => onChanged(index),
-            labelStyle: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: isSelected ? Colors.white : const Color(0xFF7C8596),
-            ),
-            selectedColor: AppTheme.navy,
-            backgroundColor: const Color(0xFFF1F2F7),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(
-                color: isSelected ? Colors.transparent : Colors.transparent,
-              ),
-            ),
-            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            visualDensity: VisualDensity.compact,
+        return ChoiceChip(
+          label: Text(label),
+          selected: isSelected,
+          onSelected: (_) => onChanged(index),
+          labelStyle: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: isSelected ? Colors.white : const Color(0xFF7C8596),
           ),
+          selectedColor: AppTheme.navy,
+          backgroundColor: const Color(0xFFF1F2F7),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(
+              color: isSelected ? Colors.transparent : Colors.transparent,
+            ),
+          ),
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          visualDensity: VisualDensity.compact,
         );
-      }).toList(),
+      }),
     );
   }
 }

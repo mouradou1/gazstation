@@ -64,35 +64,38 @@ class StationDetailContent extends StatelessWidget {
                     ),
                   )
                 else
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 8,
-                    children: tanks
-                        .map(
-                          (tank) => ChoiceChip(
-                            label: Text(tank.label),
-                            selected: tank.id == effectiveTankId,
-                            onSelected: (_) => onSelectTank(tank.id),
+                  SizedBox(
+                    height: 320,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: tanks.length,
+                      padding: EdgeInsets.zero,
+                      separatorBuilder: (_, __) => const SizedBox(width: 16),
+                      itemBuilder: (context, index) {
+                        final tank = tanks[index];
+                        return SizedBox(
+                          width: 300,
+                          child: TankSnapshot(
+                            tank: tank,
+                            onTap: () => onSelectTank(tank.id),
+                            isSelected: tank.id == effectiveTankId,
+                            onSeeDetails: () => context.pushNamed(
+                              AppRoute.fuelDetail.name,
+                              pathParameters: {
+                                'stationId': station.id,
+                                'fuelId': tank.id,
+                              },
+                            ),
                           ),
-                        )
-                        .toList(),
+                        );
+                      },
+                    ),
                   ),
               ],
             ),
           ),
           if (fuelTank != null) ...[
-            const SizedBox(height: 20),
-            TankSnapshot(
-              tank: fuelTank,
-              onSeeDetails: () => context.pushNamed(
-                AppRoute.fuelDetail.name,
-                pathParameters: {
-                  'stationId': station.id,
-                  'fuelId': fuelTank.id,
-                },
-              ),
-            ),
-            const SizedBox(height: 22),
+            const SizedBox(height: 24),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
