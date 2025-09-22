@@ -26,6 +26,7 @@ class TankSnapshot extends StatelessWidget {
     final percent = tank.fillPercent.clamp(0.0, 1.0);
     final percentLabel = '${(percent * 100).toStringAsFixed(0)}%';
     final isLow = percent <= tank.warningThresholdPercent;
+    final levelColor = _resolveLevelColor(percent);
 
     final borderRadius = BorderRadius.circular(28);
     final borderColor = isSelected ? AppTheme.navy : Colors.transparent;
@@ -107,7 +108,7 @@ class TankSnapshot extends StatelessWidget {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      _StatusDot(isLow: isLow),
+                      _StatusDot(color: levelColor),
                       const SizedBox(height: 12),
                       Row(
                         mainAxisSize: MainAxisSize.min,
@@ -135,11 +136,7 @@ class TankSnapshot extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 28),
-              _HorizontalTankGauge(
-                tank: tank,
-                percentLabel: percentLabel,
-                isLow: isLow,
-              ),
+              _HorizontalTankGauge(tank: tank, percentLabel: percentLabel),
               const SizedBox(height: 18),
               if (showSeeDetails)
                 Align(
@@ -191,24 +188,32 @@ class TankSnapshot extends StatelessWidget {
     final minute = dateTime.minute.toString().padLeft(2, '0');
     return '$day-$month-$year $hour:$minute';
   }
+
+  Color _resolveLevelColor(double percent) {
+    if (percent < 0.2) {
+      return const Color(0xFFFF4D52);
+    }
+    if (percent < 0.5) {
+      return const Color(0xFFFFC431);
+    }
+    return const Color(0xFF38C172);
+  }
 }
 
 class _HorizontalTankGauge extends StatelessWidget {
-  const _HorizontalTankGauge({
-    required this.tank,
-    required this.percentLabel,
-    required this.isLow,
-  });
+  const _HorizontalTankGauge({required this.tank, required this.percentLabel});
 
   final FuelTank tank;
   final String percentLabel;
-  final bool isLow;
 
   Color _getGaugeColor(double percent) {
-    if (percent <= 0.10) {
-      return const Color(0xFFFF5C5C);
+    if (percent < 0.2) {
+      return const Color(0xFFFF4D52);
     }
-    return const Color(0xFF3D6DFF);
+    if (percent < 0.5) {
+      return const Color(0xFFFFC431);
+    }
+    return const Color(0xFF38C172);
   }
 
   @override
@@ -282,7 +287,6 @@ class _HorizontalTankGauge extends StatelessWidget {
                 child: _GaugeBar(
                   percent: percent,
                   percentLabel: percentLabel,
-                  isLow: isLow,
                   gaugeColor: gaugeColor,
                 ),
               ),
@@ -320,29 +324,22 @@ class _GaugeBar extends StatelessWidget {
   const _GaugeBar({
     required this.percent,
     required this.percentLabel,
-    required this.isLow,
     required this.gaugeColor,
   });
 
   final double percent;
   final String percentLabel;
-  final bool isLow;
   final Color gaugeColor;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final fillGradient = isLow
-        ? const LinearGradient(
-            colors: [Color(0xFFFFB5B4), Color(0xFFFF5C5C)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          )
-        : LinearGradient(
-            colors: [gaugeColor.withOpacity(0.35), gaugeColor],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          );
+    final topColor = Color.lerp(Colors.white, gaugeColor, 0.65)!;
+    final fillGradient = LinearGradient(
+      colors: [topColor, gaugeColor],
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+    );
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -468,13 +465,12 @@ class _GaugeConnectorPainter extends CustomPainter {
 }
 
 class _StatusDot extends StatelessWidget {
-  const _StatusDot({required this.isLow});
+  const _StatusDot({required this.color});
 
-  final bool isLow;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    final color = isLow ? const Color(0xFFE53935) : const Color(0xFF4CAF50);
     return Container(
       height: 14,
       width: 14,
