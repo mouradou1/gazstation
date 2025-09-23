@@ -1,17 +1,25 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:math';
 
 import 'package:gazstation/core/network/api_client.dart';
+import 'package:gazstation/core/network/repository_error.dart';
 import 'package:gazstation/features/home/data/models/remote_gas_station_models.dart';
 import 'package:gazstation/features/home/domain/entities/gas_station.dart';
 import 'package:gazstation/features/home/domain/repositories/gas_station_repository.dart';
 
 class RemoteGasStationRepository implements GasStationRepository {
-  RemoteGasStationRepository({required this.apiClient, this.basePath = '/api'});
+  RemoteGasStationRepository({
+    required this.apiClient,
+    this.basePath = '/api',
+    this.errorReporter,
+  });
 
   final ApiClient apiClient;
   final String basePath;
+  final RepositoryErrorReporter? errorReporter;
+  final Set<String> _silencedErrorContexts = <String>{};
 
   String get _stationsPath => '$basePath/stations';
   String get _stationDetailsPath => '$basePath/Tires';
@@ -205,13 +213,111 @@ class RemoteGasStationRepository implements GasStationRepository {
         .toList();
   }
 
+  String _contextKey(String context) {
+    final separatorIndex = context.indexOf('(');
+    if (separatorIndex == -1) {
+      return context;
+    }
+    return context.substring(0, separatorIndex);
+  }
+
+  String? _contextIdentifier(String context) {
+    final start = context.indexOf('(');
+    if (start == -1) {
+      return null;
+    }
+    final end = context.indexOf(')', start + 1);
+    if (end == -1 || end <= start + 1) {
+      return null;
+    }
+    return context.substring(start + 1, end);
+  }
+
+  String _contextDescription(String contextKey) {
+    switch (contextKey) {
+      case 'stationDetails':
+        return 'les détails de la station';
+      case 'stationTanks':
+        return 'les cuves de la station';
+      case 'tankMovements':
+        return 'les mouvements de cuve';
+      case 'pumpTransactions':
+        return 'les transactions de pompe';
+      case 'mapStation':
+        return 'la station';
+      default:
+        return 'les données';
+    }
+  }
+
+  String _apiErrorMessage(ApiException error) {
+    final body = error.body;
+    if (body == null || body.trim().isEmpty) {
+      return 'Code ${error.statusCode}';
+    }
+
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is Map<String, dynamic>) {
+        final value = decoded['error'] ?? decoded['message'];
+        if (value is String && value.trim().isNotEmpty) {
+          return value.trim();
+        }
+      }
+      if (decoded is List && decoded.isNotEmpty) {
+        final first = decoded.first;
+        if (first is String && first.trim().isNotEmpty) {
+          return first.trim();
+        }
+      }
+    } catch (_) {
+      // Ignored: fallback to raw body below.
+    }
+
+    return body.trim();
+  }
+
+  void _reportError(String context, Object error) {
+    final reporter = errorReporter;
+    if (reporter == null) {
+      return;
+    }
+
+    final contextKey = _contextKey(context);
+    final identifier = _contextIdentifier(context);
+    final target = _contextDescription(contextKey);
+    final scope = identifier != null ? '$target (ID $identifier)' : target;
+
+    String title = 'Erreur serveur';
+    late final String message;
+
+    if (error is ApiException) {
+      final reason = _apiErrorMessage(error);
+      final sanitizedReason = reason.isEmpty ? 'Erreur inconnue' : reason;
+      message =
+          'Impossible de récupérer $scope. (${error.statusCode}) $sanitizedReason';
+    } else if (error is TimeoutException) {
+      title = 'Temps dépassé';
+      message =
+          'Le chargement de $scope prend plus de temps que prévu. Veuillez réessayer.';
+    } else {
+      title = 'Erreur inattendue';
+      message = 'Une erreur est survenue lors de la récupération de $scope.';
+    }
+
+    reporter(RepositoryError(context: context, title: title, message: message));
+  }
+
   Future<T> _guard<T>(
     Future<T> Function() runner,
     T fallback, {
     required String context,
   }) async {
+    final contextKey = _contextKey(context);
     try {
-      return await runner();
+      final result = await runner();
+      _silencedErrorContexts.remove(contextKey);
+      return result;
     } on ApiException catch (error, stackTrace) {
       developer.log(
         'API error while $context',
@@ -219,6 +325,10 @@ class RemoteGasStationRepository implements GasStationRepository {
         error: error,
         stackTrace: stackTrace,
       );
+      final shouldReport = _silencedErrorContexts.add(contextKey);
+      if (shouldReport) {
+        _reportError(context, error);
+      }
       return fallback;
     } on TimeoutException catch (error, stackTrace) {
       developer.log(
@@ -227,6 +337,10 @@ class RemoteGasStationRepository implements GasStationRepository {
         error: error,
         stackTrace: stackTrace,
       );
+      final shouldReport = _silencedErrorContexts.add(contextKey);
+      if (shouldReport) {
+        _reportError(context, error);
+      }
       return fallback;
     } on Exception catch (error, stackTrace) {
       developer.log(
@@ -235,6 +349,10 @@ class RemoteGasStationRepository implements GasStationRepository {
         error: error,
         stackTrace: stackTrace,
       );
+      final shouldReport = _silencedErrorContexts.add(contextKey);
+      if (shouldReport) {
+        _reportError(context, error);
+      }
       return fallback;
     }
   }

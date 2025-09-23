@@ -26,7 +26,9 @@ class TankSnapshot extends StatelessWidget {
     final percent = tank.fillPercent.clamp(0.0, 1.0);
     final percentLabel = '${(percent * 100).toStringAsFixed(0)}%';
     final isLow = percent <= tank.warningThresholdPercent;
-    final levelColor = _resolveLevelColor(percent);
+
+    // La couleur du point de statut est maintenant toujours verte pour correspondre à l'image.
+    final levelColor = const Color(0xFF38C172);
 
     final borderRadius = BorderRadius.circular(28);
     final borderColor = isSelected ? AppTheme.navy : Colors.transparent;
@@ -53,7 +55,7 @@ class TankSnapshot extends StatelessWidget {
               ),
             ],
           ),
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -73,7 +75,7 @@ class TankSnapshot extends StatelessWidget {
                             children: [
                               TextSpan(
                                 text:
-                                    '${tank.capacityLiters.toStringAsFixed(0)}L',
+                                '${tank.capacityLiters.toStringAsFixed(0)}L',
                                 style: theme.textTheme.bodyMedium?.copyWith(
                                   color: const Color(0xFF707A8A),
                                   fontWeight: FontWeight.normal,
@@ -135,41 +137,34 @@ class TankSnapshot extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 28),
+              const SizedBox(height: 24),
               _HorizontalTankGauge(tank: tank, percentLabel: percentLabel),
-              const SizedBox(height: 18),
+              const SizedBox(height: 12),
               if (showSeeDetails)
                 Align(
                   alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: onSeeDetails,
-                    style: TextButton.styleFrom(
-                      foregroundColor: AppTheme.navy,
-                      textStyle: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                      padding: EdgeInsets.zero,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text('Afficher plus'),
-                        const SizedBox(width: 10),
-                        Container(
-                          height: 28,
-                          width: 28,
-                          decoration: const BoxDecoration(
+                  child: InkWell(
+                    onTap: onSeeDetails,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Afficher plus',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.navy,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          const Icon(
+                            Icons.arrow_forward_ios,
+                            size: 14,
                             color: AppTheme.navy,
-                            shape: BoxShape.circle,
                           ),
-                          alignment: Alignment.center,
-                          child: const Icon(
-                            Icons.arrow_forward,
-                            size: 16,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -187,16 +182,6 @@ class TankSnapshot extends StatelessWidget {
     final hour = dateTime.hour.toString().padLeft(2, '0');
     final minute = dateTime.minute.toString().padLeft(2, '0');
     return '$day-$month-$year $hour:$minute';
-  }
-
-  Color _resolveLevelColor(double percent) {
-    if (percent < 0.2) {
-      return const Color(0xFFFF4D52);
-    }
-    if (percent < 0.5) {
-      return const Color(0xFFFFC431);
-    }
-    return const Color(0xFF38C172);
   }
 }
 
@@ -222,11 +207,11 @@ class _HorizontalTankGauge extends StatelessWidget {
     final gaugeColor = _getGaugeColor(percent);
     return LayoutBuilder(
       builder: (context, constraints) {
-        const totalHeight = 150.0;
-        const gaugeHeight = 70.0;
+        const totalHeight = 138.0;
+        const gaugeHeight = 68.0;
         const bubbleWidth = 126.0;
-        const bubbleHeight = 64.0;
-        const bubbleTop = 8.0;
+        const bubbleHeight = 60.0;
+        const bubbleTop = 6.0;
 
         final maxWidth = constraints.maxWidth;
         final bubbleLeft = math.max(0.0, maxWidth - bubbleWidth);
@@ -248,9 +233,11 @@ class _HorizontalTankGauge extends StatelessWidget {
         );
 
         final capSize = const Size(32, 14);
+
+        // LA CORRECTION EST ICI
         final capOffset = Offset(
           connectorStart.dx - capSize.width / 2,
-          connectorEnd.dy - capSize.height / 2,
+          gaugeTop - capSize.height / 2, // Positionne le capuchon sur la jauge
         );
 
         return SizedBox(
@@ -409,7 +396,7 @@ class _MeasurementBubble extends StatelessWidget {
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -478,7 +465,7 @@ class _StatusDot extends StatelessWidget {
         color: color,
         shape: BoxShape.circle,
         boxShadow: [
-          BoxShadow(color: color.withValues(alpha: 0.4), blurRadius: 8),
+          BoxShadow(color: color.withOpacity(0.4), blurRadius: 8),
         ],
       ),
     );
