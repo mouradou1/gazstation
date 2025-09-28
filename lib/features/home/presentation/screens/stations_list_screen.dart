@@ -25,7 +25,7 @@ class _StationsListScreenState extends ConsumerState<StationsListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final stationsAsync = ref.watch(gasStationsProvider);
+    final stationsAsync = ref.watch(stationsListProvider);
 
     final contentSlivers = stationsAsync.when<List<Widget>>(
       data: (stations) {

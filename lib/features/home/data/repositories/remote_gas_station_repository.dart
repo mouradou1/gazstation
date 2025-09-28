@@ -24,55 +24,39 @@ class RemoteGasStationRepository implements GasStationRepository {
   String get _stationsPath => '$basePath/stations';
   String get _stationDetailsPath => '$basePath/Tires';
   String get _tanksPath => '$basePath/cuves';
-  String get _tankMovementsPath => '$basePath/MTcuves';
-  String get _transactionsPath => '$basePath/pump';
 
   List<dynamic> _asList(dynamic data) => data is List ? data : const [];
 
   bool _hasValue(String? value) => value?.trim().isNotEmpty ?? false;
 
   @override
-  Future<List<GasStation>> fetchStations({bool forceRefresh = false}) async {
-    final stationsFuture = apiClient.get(_stationsPath);
-    final detailsFuture = apiClient
-        .get(_stationDetailsPath)
-        .then<List<dynamic>>(_asList)
-        .catchError((error, stackTrace) {
-      developer.log(
-        'Failed to fetch station details list',
-        name: 'RemoteGasStationRepository',
-        error: error,
-        stackTrace: stackTrace is StackTrace ? stackTrace : null,
-      );
-      return const <dynamic>[];
-    });
-
-    final responses = await Future.wait<dynamic>([
-      stationsFuture,
-      detailsFuture,
-    ]);
-
-    final stationsJson = _asList(responses[0]);
+  Future<List<GasStation>> fetchStationsList({bool forceRefresh = false}) async {
+    final stationsJson = _asList(await apiClient.get(_stationsPath));
     final stations = stationsJson
         .whereType<Map<String, dynamic>>()
         .map(StationDto.fromJson)
         .toList();
 
-    final detailsJson = responses[1] as List<dynamic>;
-    final allDetails = detailsJson
-        .whereType<Map<String, dynamic>>()
-        .map(StationDetailsDto.fromJson);
-
-    final detailsMap = <int, StationDetailsDto>{};
-    for (final detail in allDetails) {
-      detailsMap[detail.stationId] = detail;
-    }
+    final detailFutures = stations.map(
+      (station) => _guard<StationDetailsDto?>(
+        () => _fetchStationDetails(station.id),
+        null,
+        context: 'stationDetailsList(${station.id})',
+      ),
+    );
+    final detailResults = await Future.wait(detailFutures);
+    final detailsMap = <int, StationDetailsDto>{
+      for (final detail in detailResults)
+        if (detail != null) detail.stationId: detail,
+    };
 
     return stations.map((stationDto) {
       final details = detailsMap[stationDto.id];
       final address = _hasValue(details?.address)
           ? details!.address!.trim()
-          : 'Address unknown';
+          : _hasValue(stationDto.address)
+              ? stationDto.address!.trim()
+              : 'Adresse inconnue';
 
       return GasStation(
         id: stationDto.id.toString(),
@@ -89,34 +73,33 @@ class RemoteGasStationRepository implements GasStationRepository {
   }
 
   @override
-  Future<GasStation?> fetchStationById(
+  Future<GasStation?> fetchStationDetails(
     String id, {
     bool forceRefresh = false,
   }) async {
-    try {
-      final details = await fetchStationDetails(id);
-      return details;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  @override
-  Future<GasStation> fetchStationDetails(String id) async {
     final stationId = int.tryParse(id);
     if (stationId == null) {
-      throw StateError('Invalid station id: $id');
+      developer.log(
+        'Invalid station id: $id',
+        name: 'RemoteGasStationRepository',
+        level: 900,
+      );
+      return null;
     }
 
-    final stationsJson = _asList(await apiClient.get(_stationsPath));
-    final stations = stationsJson
-        .whereType<Map<String, dynamic>>()
-        .map(StationDto.fromJson)
-        .toList();
+    try {
+      final stationsJson = _asList(await apiClient.get(_stationsPath));
+      final stations = stationsJson
+          .whereType<Map<String, dynamic>>()
+          .map(StationDto.fromJson)
+          .toList();
 
-    final station = stations.firstWhere((item) => item.id == stationId);
-    // _mapStationAsync already guards its internal API calls
-    return _mapStationAsync(station);
+      final station = stations.firstWhere((item) => item.id == stationId);
+      // _mapStationAsync already guards its internal API calls
+      return await _mapStationAsync(station);
+    } on StateError {
+      return null;
+    }
   }
 
   @override
@@ -125,7 +108,7 @@ class RemoteGasStationRepository implements GasStationRepository {
     String tankId, {
     bool forceRefresh = false,
   }) async {
-    final station = await fetchStationById(
+    final station = await fetchStationDetails(
       stationId,
       forceRefresh: forceRefresh,
     );
@@ -151,31 +134,16 @@ class RemoteGasStationRepository implements GasStationRepository {
       const <TankDto>[],
       context: 'stationTanks(${station.id})',
     );
-    final movementsFuture = _guard<List<TankMovementDto>>(
-      () => _fetchTankMovements(station.id),
-      const <TankMovementDto>[],
-      context: 'tankMovements(${station.id})',
-    );
-    final transactionsFuture = _guard<List<PumpTransactionDto>>(
-      () => _fetchPumpTransactions(station.id),
-      const <PumpTransactionDto>[],
-      context: 'pumpTransactions(${station.id})',
-    );
 
     final details = await detailsFuture;
     final tanks = await tanksFuture;
-    final movements = await movementsFuture;
-    final transactions = await transactionsFuture;
-
-    final movementsByTank = _groupMovementsByTank(movements);
-    final transactionsByTank = _groupTransactionsByTank(transactions);
 
     final tankEntities = tanks.map((tank) {
-      final key = tank.localId ?? tank.id;
-      final tankMovements = movementsByTank[key] ?? const <TankMovementDto>[];
-      final tankTransactions =
-          transactionsByTank[key] ?? const <PumpTransactionDto>[];
-      return _mapTank(tank, tankMovements, tankTransactions);
+      return _mapTank(
+        tank,
+        const <TankMovementDto>[],
+        const <PumpTransactionDto>[],
+      );
     }).toList();
 
     final criticalTanks = tankEntities
@@ -190,7 +158,9 @@ class RemoteGasStationRepository implements GasStationRepository {
 
     final address = _hasValue(details?.address)
         ? details!.address!.trim()
-        : 'Adresse inconnue';
+        : _hasValue(station.address)
+            ? station.address!.trim()
+            : 'Adresse inconnue';
 
     return GasStation(
       id: station.id.toString(),
@@ -229,27 +199,6 @@ class RemoteGasStationRepository implements GasStationRepository {
     ).whereType<Map<String, dynamic>>().map(TankDto.fromJson).toList();
   }
 
-  Future<List<TankMovementDto>> _fetchTankMovements(int stationId) async {
-    final response = await apiClient.post(
-      _tankMovementsPath,
-      body: {'StationID': stationId},
-    );
-    return _asList(
-      response,
-    ).whereType<Map<String, dynamic>>().map(TankMovementDto.fromJson).toList();
-  }
-
-  Future<List<PumpTransactionDto>> _fetchPumpTransactions(int stationId) async {
-    final response = await apiClient.post(
-      _transactionsPath,
-      body: {'StationID': stationId},
-    );
-    return _asList(response)
-        .whereType<Map<String, dynamic>>()
-        .map(PumpTransactionDto.fromJson)
-        .toList();
-  }
-
   String _contextKey(String context) {
     final separatorIndex = context.indexOf('(');
     if (separatorIndex == -1) {
@@ -273,6 +222,8 @@ class RemoteGasStationRepository implements GasStationRepository {
   String _contextDescription(String contextKey) {
     switch (contextKey) {
       case 'stationDetails':
+        return 'les détails de la station';
+      case 'stationDetailsList':
         return 'les détails de la station';
       case 'stationTanks':
         return 'les cuves de la station';
@@ -394,34 +345,6 @@ class RemoteGasStationRepository implements GasStationRepository {
     }
   }
 
-  Map<int, List<TankMovementDto>> _groupMovementsByTank(
-    List<TankMovementDto> movements,
-  ) {
-    final result = <int, List<TankMovementDto>>{};
-    for (final movement in movements) {
-      final tankId = movement.tankLocalId;
-      if (tankId == null) {
-        continue;
-      }
-      result.putIfAbsent(tankId, () => <TankMovementDto>[]).add(movement);
-    }
-    return result;
-  }
-
-  Map<int, List<PumpTransactionDto>> _groupTransactionsByTank(
-    List<PumpTransactionDto> transactions,
-  ) {
-    final result = <int, List<PumpTransactionDto>>{};
-    for (final transaction in transactions) {
-      final tankId = transaction.tankId;
-      if (tankId == null) {
-        continue;
-      }
-      result.putIfAbsent(tankId, () => <PumpTransactionDto>[]).add(transaction);
-    }
-    return result;
-  }
-
   FuelTank _mapTank(
     TankDto tank,
     List<TankMovementDto> movements,
@@ -464,6 +387,10 @@ class RemoteGasStationRepository implements GasStationRepository {
     TankDto tank,
     List<PumpTransactionDto> transactions,
   ) {
+    if (movements.isEmpty && transactions.isEmpty) {
+      return const <TankLogEntry>[];
+    }
+
     final sortedMovements = [...movements]
       ..sort((a, b) {
         final aDate = a.modifiedAt ?? DateTime.fromMillisecondsSinceEpoch(0);

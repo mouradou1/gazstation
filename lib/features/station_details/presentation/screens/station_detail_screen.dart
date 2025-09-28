@@ -51,6 +51,12 @@ class _StationDetailScreenState extends ConsumerState<StationDetailScreen> {
       body: SafeArea(
         child: stationAsync.when(
           data: (station) {
+            if (station == null) {
+              return const StationCenteredMessage(
+                title: 'Station introuvable',
+                message: 'Cette station n’est plus disponible.',
+              );
+            }
             return StationDetailContent(
               station: station,
               selectedTankId: _selectedTankId,

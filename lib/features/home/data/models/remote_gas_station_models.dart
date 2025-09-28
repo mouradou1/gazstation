@@ -1,5 +1,10 @@
 class StationDto {
-  StationDto({required this.id, required this.name, this.status});
+  StationDto({
+    required this.id,
+    required this.name,
+    this.status,
+    this.address,
+  });
 
   factory StationDto.fromJson(Map<String, dynamic> json) {
     return StationDto(
@@ -8,12 +13,16 @@ class StationDto {
           ? (json['Libelle'] as String).trim()
           : 'Station ${json['id']}',
       status: json['statut'] as int?,
+      address: (json['Adress'] as String?)?.trim().isNotEmpty == true
+          ? (json['Adress'] as String).trim()
+          : null,
     );
   }
 
   final int id;
   final String name;
   final int? status;
+  final String? address;
 }
 
 class StationDetailsDto {

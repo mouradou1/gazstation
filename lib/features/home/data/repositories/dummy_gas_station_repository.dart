@@ -17,12 +17,15 @@ class DummyGasStationRepository implements GasStationRepository {
   }
 
   @override
-  Future<List<GasStation>> fetchStations({bool forceRefresh = false}) {
+  Future<List<GasStation>> fetchStationsList({bool forceRefresh = false}) {
     return _withDelay(() => dummyStations);
   }
 
   @override
-  Future<GasStation?> fetchStationById(String id, {bool forceRefresh = false}) {
+  Future<GasStation?> fetchStationDetails(
+    String id, {
+    bool forceRefresh = false,
+  }) {
     return _withDelay(() {
       try {
         return dummyStations.firstWhere((station) => station.id == id);
@@ -30,15 +33,6 @@ class DummyGasStationRepository implements GasStationRepository {
         return null;
       }
     });
-  }
-
-  @override
-  Future<GasStation> fetchStationDetails(String id) async {
-    final station = await fetchStationById(id);
-    if (station == null) {
-      throw StateError('Station not found: $id');
-    }
-    return station;
   }
 
   @override

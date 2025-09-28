@@ -21,38 +21,28 @@ class CachedGasStationRepository implements GasStationRepository {
   }
 
   @override
-  Future<List<GasStation>> fetchStations({bool forceRefresh = false}) async {
+  Future<List<GasStation>> fetchStationsList({bool forceRefresh = false}) async {
     if (!forceRefresh && _isCacheValid && _stationsCache != null) {
       return _stationsCache!;
     }
 
-    final stations = await remoteRepository.fetchStations(forceRefresh: forceRefresh);
+    final stations = await remoteRepository.fetchStationsList(
+      forceRefresh: forceRefresh,
+    );
     _stationsCache = stations;
     _lastFetchTime = DateTime.now();
     return stations;
   }
 
   @override
-  Future<GasStation?> fetchStationById(String id, {bool forceRefresh = false}) async {
-    // Prefer returning a fully-detailed station. If cache is present and looks
-    // detailed (has at least one tank), return it; otherwise fetch details.
-    if (!forceRefresh && _isCacheValid && _stationsCache != null) {
-      try {
-        final cached = _stationsCache!.firstWhere((station) => station.id == id);
-        if (cached.tanks.isNotEmpty) {
-          return cached;
-        }
-        // Fall through to fetch full details below if lightweight.
-      } on StateError {
-        // Not in cache, will fetch from remote below
-      }
-    }
+  Future<GasStation?> fetchStationDetails(String id, {bool forceRefresh = false}) async {
+    final station = await remoteRepository.fetchStationDetails(
+      id,
+      forceRefresh: forceRefresh,
+    );
 
-    // Delegate to remote which returns full details, then update cache.
-    final station = await remoteRepository.fetchStationById(id, forceRefresh: forceRefresh);
     if (station != null) {
-      // Update cache
-      _stationsCache ??= [];
+      _stationsCache ??= <GasStation>[];
       final index = _stationsCache!.indexWhere((s) => s.id == id);
       if (index != -1) {
         _stationsCache![index] = station;
@@ -61,23 +51,6 @@ class CachedGasStationRepository implements GasStationRepository {
       }
       _lastFetchTime = DateTime.now();
     }
-    return station;
-  }
-
-  @override
-  Future<GasStation> fetchStationDetails(String id) async {
-    // Always fetch full details from remote, then update the cache
-    final station = await remoteRepository.fetchStationDetails(id);
-
-    // Update or insert into cache
-    _stationsCache ??= <GasStation>[];
-    final index = _stationsCache!.indexWhere((s) => s.id == id);
-    if (index != -1) {
-      _stationsCache![index] = station;
-    } else {
-      _stationsCache!.add(station);
-    }
-    _lastFetchTime = DateTime.now();
 
     return station;
   }
@@ -88,8 +61,12 @@ class CachedGasStationRepository implements GasStationRepository {
       String tankId, {
         bool forceRefresh = false,
       }) {
-    // The fetchStationById call in the remote repository will be cached,
+    // The fetchStationDetails call in the remote repository will be cached,
     // so this indirectly benefits from the cache as well.
-    return remoteRepository.fetchTankById(stationId, tankId, forceRefresh: forceRefresh);
+    return remoteRepository.fetchTankById(
+      stationId,
+      tankId,
+      forceRefresh: forceRefresh,
+    );
   }
 }
