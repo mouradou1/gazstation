@@ -39,13 +39,12 @@ class LoginFormSection extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 20),
-          Text('Email', style: theme.textTheme.bodyMedium),
+          Text('Username', style: theme.textTheme.bodyMedium),
           const SizedBox(height: 8),
           TextField(
             controller: emailController,
             keyboardType: TextInputType.emailAddress,
             decoration: const InputDecoration(
-              hintText: 'exemple@entreprise.com',
               prefixIcon: Icon(Icons.mail_outline),
             ),
           ),
@@ -56,7 +55,6 @@ class LoginFormSection extends StatelessWidget {
             controller: passwordController,
             obscureText: obscurePassword,
             decoration: InputDecoration(
-              hintText: '●●●●●●●●',
               prefixIcon: const Icon(Icons.lock_outline),
               suffixIcon: IconButton(
                 icon: Icon(
