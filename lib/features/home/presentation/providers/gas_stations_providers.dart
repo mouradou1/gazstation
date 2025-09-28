@@ -15,11 +15,8 @@ final gasStationProvider = FutureProvider.family<GasStation?, String>((
   return repository.fetchStationById(id);
 });
 
-final fuelTankProvider =
-    FutureProvider.family<FuelTank?, ({String stationId, String fuelId})>((
-      ref,
-      params,
-    ) async {
-      final repository = ref.watch(gasStationRepositoryProvider);
-      return repository.fetchTankById(params.stationId, params.fuelId);
-    });
+final stationDetailsProvider =
+    FutureProvider.family<GasStation, String>((ref, id) async {
+  final repository = ref.watch(gasStationRepositoryProvider);
+  return repository.fetchStationDetails(id);
+});

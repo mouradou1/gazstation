@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:gazstation/core/network/repository_error.dart';
 import 'package:gazstation/core/theme/app_theme.dart';
-import 'package:gazstation/features/home/data/repositories/gas_station_repository_provider.dart';
 import 'package:gazstation/features/home/presentation/providers/gas_stations_providers.dart';
 import 'package:gazstation/features/station_details/presentation/widgets/station_centered_message.dart';
 import 'package:gazstation/features/station_details/presentation/widgets/station_detail_content.dart';
@@ -23,31 +21,7 @@ class _StationDetailScreenState extends ConsumerState<StationDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    ref.listen<RepositoryError?>(repositoryErrorProvider, (previous, next) {
-      if (next == null) {
-        return;
-      }
-
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) {
-          return;
-        }
-
-        final messenger = ScaffoldMessenger.of(context);
-        messenger
-          ..clearSnackBars()
-          ..showSnackBar(
-            SnackBar(
-              content: Text(next.message),
-              duration: const Duration(seconds: 4),
-            ),
-          );
-
-        ref.read(repositoryErrorProvider.notifier).clear();
-      });
-    });
-
-    final stationAsync = ref.watch(gasStationProvider(widget.stationId));
+    final stationAsync = ref.watch(stationDetailsProvider(widget.stationId));
     final appBarTitle = stationAsync.value?.name ?? 'Détails station';
 
     return Scaffold(
@@ -77,12 +51,6 @@ class _StationDetailScreenState extends ConsumerState<StationDetailScreen> {
       body: SafeArea(
         child: stationAsync.when(
           data: (station) {
-            if (station == null) {
-              return const StationCenteredMessage(
-                title: 'Station introuvable',
-                message: 'Impossible de trouver cette station.',
-              );
-            }
             return StationDetailContent(
               station: station,
               selectedTankId: _selectedTankId,

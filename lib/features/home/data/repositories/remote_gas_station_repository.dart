@@ -33,25 +33,59 @@ class RemoteGasStationRepository implements GasStationRepository {
 
   @override
   Future<List<GasStation>> fetchStations({bool forceRefresh = false}) async {
-    final stationsJson = _asList(await apiClient.get(_stationsPath));
+    final stationsFuture = apiClient.get(_stationsPath);
+    final detailsFuture = apiClient
+        .get(_stationDetailsPath)
+        .then<List<dynamic>>(_asList)
+        .catchError((error, stackTrace) {
+      developer.log(
+        'Failed to fetch station details list',
+        name: 'RemoteGasStationRepository',
+        error: error,
+        stackTrace: stackTrace is StackTrace ? stackTrace : null,
+      );
+      return const <dynamic>[];
+    });
+
+    final responses = await Future.wait<dynamic>([
+      stationsFuture,
+      detailsFuture,
+    ]);
+
+    final stationsJson = _asList(responses[0]);
     final stations = stationsJson
         .whereType<Map<String, dynamic>>()
         .map(StationDto.fromJson)
         .toList();
 
-    final result = <GasStation>[];
-    for (final station in stations) {
-      final mapped = await _guard<GasStation?>(
-        () => _mapStationAsync(station),
-        null,
-        context: 'mapStation(${station.id})',
-      );
-      if (mapped != null) {
-        result.add(mapped);
-      }
+    final detailsJson = responses[1] as List<dynamic>;
+    final allDetails = detailsJson
+        .whereType<Map<String, dynamic>>()
+        .map(StationDetailsDto.fromJson);
+
+    final detailsMap = <int, StationDetailsDto>{};
+    for (final detail in allDetails) {
+      detailsMap[detail.stationId] = detail;
     }
 
-    return result;
+    return stations.map((stationDto) {
+      final details = detailsMap[stationDto.id];
+      final address = _hasValue(details?.address)
+          ? details!.address!.trim()
+          : 'Address unknown';
+
+      return GasStation(
+        id: stationDto.id.toString(),
+        name: stationDto.name,
+        address: address,
+        alerts: const StationAlerts(
+          information: 0,
+          warnings: 0,
+          critical: 0,
+        ),
+        tanks: const <FuelTank>[],
+      );
+    }).toList();
   }
 
   @override
@@ -59,9 +93,19 @@ class RemoteGasStationRepository implements GasStationRepository {
     String id, {
     bool forceRefresh = false,
   }) async {
+    try {
+      final details = await fetchStationDetails(id);
+      return details;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<GasStation> fetchStationDetails(String id) async {
     final stationId = int.tryParse(id);
     if (stationId == null) {
-      return null;
+      throw StateError('Invalid station id: $id');
     }
 
     final stationsJson = _asList(await apiClient.get(_stationsPath));
@@ -70,16 +114,9 @@ class RemoteGasStationRepository implements GasStationRepository {
         .map(StationDto.fromJson)
         .toList();
 
-    try {
-      final station = stations.firstWhere((item) => item.id == stationId);
-      return await _guard<GasStation?>(
-        () => _mapStationAsync(station),
-        null,
-        context: 'mapStation($stationId)',
-      );
-    } on StateError {
-      return null;
-    }
+    final station = stations.firstWhere((item) => item.id == stationId);
+    // _mapStationAsync already guards its internal API calls
+    return _mapStationAsync(station);
   }
 
   @override

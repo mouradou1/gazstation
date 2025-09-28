@@ -85,8 +85,9 @@ class StationDetailContent extends StatelessWidget {
                               AppRoute.fuelDetail.name,
                               pathParameters: {
                                 'stationId': station.id,
-                                'fuelId': tank.id,
+                                'fuelId': tank.id, // keep for URL
                               },
+                              extra: tank,
                             ),
                           ),
                         );

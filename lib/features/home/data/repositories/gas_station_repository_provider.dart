@@ -1,10 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
-import 'package:gazstation/core/network/api_client.dart';
-import 'package:gazstation/core/network/repository_error.dart';
 import 'package:gazstation/features/home/data/repositories/remote_gas_station_repository.dart';
 import 'package:gazstation/features/home/domain/repositories/gas_station_repository.dart';
 import 'package:http/http.dart' as http;
+
+import '../../../../core/network/api_client.dart';
+import 'cached_gas_station_repository.dart';
 
 const _defaultBaseUrl = String.fromEnvironment(
   'API_BASE_URL',
@@ -25,30 +26,13 @@ final _apiClientProvider = Provider<ApiClient>((ref) {
   return ApiClient(httpClient: httpClient, baseUrl: baseUrl);
 });
 
-class RepositoryErrorNotifier extends StateNotifier<RepositoryError?> {
-  RepositoryErrorNotifier() : super(null);
-
-  void report(RepositoryError error) {
-    state = error;
-  }
-
-  void clear() {
-    if (state != null) {
-      state = null;
-    }
-  }
-}
-
-final repositoryErrorProvider =
-    StateNotifierProvider<RepositoryErrorNotifier, RepositoryError?>(
-  (ref) => RepositoryErrorNotifier(),
-);
-
 final gasStationRepositoryProvider = Provider<GasStationRepository>((ref) {
   final apiClient = ref.watch(_apiClientProvider);
-  final errorNotifier = ref.watch(repositoryErrorProvider.notifier);
-  return RemoteGasStationRepository(
+
+  final remoteRepository = RemoteGasStationRepository(
     apiClient: apiClient,
-    errorReporter: errorNotifier.report,
   );
+
+  // Wrap the remote repository with the cached repository
+  return CachedGasStationRepository(remoteRepository: remoteRepository);
 });

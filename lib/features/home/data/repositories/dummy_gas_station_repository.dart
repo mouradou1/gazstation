@@ -33,6 +33,15 @@ class DummyGasStationRepository implements GasStationRepository {
   }
 
   @override
+  Future<GasStation> fetchStationDetails(String id) async {
+    final station = await fetchStationById(id);
+    if (station == null) {
+      throw StateError('Station not found: $id');
+    }
+    return station;
+  }
+
+  @override
   Future<FuelTank?> fetchTankById(
     String stationId,
     String tankId, {
