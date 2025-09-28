@@ -14,23 +14,32 @@ class RemoteGasStationRepository implements GasStationRepository {
     required this.apiClient,
     this.basePath = '/api',
     this.errorReporter,
+    this.tankMovementsCacheDuration = const Duration(minutes: 10),
   });
 
   final ApiClient apiClient;
   final String basePath;
   final RepositoryErrorReporter? errorReporter;
+  final Duration tankMovementsCacheDuration;
   final Set<String> _silencedErrorContexts = <String>{};
+  final Map<int, _TankMovementsCacheEntry> _tankMovementsCache =
+      <int, _TankMovementsCacheEntry>{};
+  final Map<int, Future<List<TankMovementDto>>> _pendingTankMovements =
+      <int, Future<List<TankMovementDto>>>{};
 
   String get _stationsPath => '$basePath/stations';
   String get _stationDetailsPath => '$basePath/Tires';
   String get _tanksPath => '$basePath/cuves';
+  String get _tankMovementsPath => '$basePath/MTcuves';
 
   List<dynamic> _asList(dynamic data) => data is List ? data : const [];
 
   bool _hasValue(String? value) => value?.trim().isNotEmpty ?? false;
 
   @override
-  Future<List<GasStation>> fetchStationsList({bool forceRefresh = false}) async {
+  Future<List<GasStation>> fetchStationsList({
+    bool forceRefresh = false,
+  }) async {
     final stationsJson = _asList(await apiClient.get(_stationsPath));
     final stations = stationsJson
         .whereType<Map<String, dynamic>>()
@@ -55,18 +64,14 @@ class RemoteGasStationRepository implements GasStationRepository {
       final address = _hasValue(details?.address)
           ? details!.address!.trim()
           : _hasValue(stationDto.address)
-              ? stationDto.address!.trim()
-              : 'Adresse inconnue';
+          ? stationDto.address!.trim()
+          : 'Adresse inconnue';
 
       return GasStation(
         id: stationDto.id.toString(),
         name: stationDto.name,
         address: address,
-        alerts: const StationAlerts(
-          information: 0,
-          warnings: 0,
-          critical: 0,
-        ),
+        alerts: const StationAlerts(information: 0, warnings: 0, critical: 0),
         tanks: const <FuelTank>[],
       );
     }).toList();
@@ -96,7 +101,7 @@ class RemoteGasStationRepository implements GasStationRepository {
 
       final station = stations.firstWhere((item) => item.id == stationId);
       // _mapStationAsync already guards its internal API calls
-      return await _mapStationAsync(station);
+      return await _mapStationAsync(station, forceRefresh: forceRefresh);
     } on StateError {
       return null;
     }
@@ -123,7 +128,10 @@ class RemoteGasStationRepository implements GasStationRepository {
     }
   }
 
-  Future<GasStation> _mapStationAsync(StationDto station) async {
+  Future<GasStation> _mapStationAsync(
+    StationDto station, {
+    bool forceRefresh = false,
+  }) async {
     final detailsFuture = _guard<StationDetailsDto?>(
       () => _fetchStationDetails(station.id),
       null,
@@ -134,16 +142,19 @@ class RemoteGasStationRepository implements GasStationRepository {
       const <TankDto>[],
       context: 'stationTanks(${station.id})',
     );
+    final movementsFuture = _guard<List<TankMovementDto>>(
+      () => _getTankMovementsByStation(station.id, forceRefresh: forceRefresh),
+      const <TankMovementDto>[],
+      context: 'tankMovements(${station.id})',
+    );
 
     final details = await detailsFuture;
     final tanks = await tanksFuture;
+    final movements = await movementsFuture;
 
     final tankEntities = tanks.map((tank) {
-      return _mapTank(
-        tank,
-        const <TankMovementDto>[],
-        const <PumpTransactionDto>[],
-      );
+      final tankMovements = _filterMovementsForTank(movements, tank);
+      return _mapTank(tank, tankMovements, const <PumpTransactionDto>[]);
     }).toList();
 
     final criticalTanks = tankEntities
@@ -159,8 +170,8 @@ class RemoteGasStationRepository implements GasStationRepository {
     final address = _hasValue(details?.address)
         ? details!.address!.trim()
         : _hasValue(station.address)
-            ? station.address!.trim()
-            : 'Adresse inconnue';
+        ? station.address!.trim()
+        : 'Adresse inconnue';
 
     return GasStation(
       id: station.id.toString(),
@@ -197,6 +208,90 @@ class RemoteGasStationRepository implements GasStationRepository {
     return _asList(
       response,
     ).whereType<Map<String, dynamic>>().map(TankDto.fromJson).toList();
+  }
+
+  Future<List<TankMovementDto>> _getTankMovementsByStation(
+    int stationId, {
+    bool forceRefresh = false,
+  }) async {
+    if (forceRefresh) {
+      _invalidateTankMovementsCache(stationId);
+    }
+
+    final cached = _tankMovementsCache[stationId];
+    if (cached != null && !_isTankMovementsCacheExpired(cached)) {
+      return cached.movements;
+    }
+
+    if (!forceRefresh) {
+      final pending = _pendingTankMovements[stationId];
+      if (pending != null) {
+        return pending;
+      }
+    }
+
+    final fetchFuture = _downloadTankMovements(stationId);
+    _pendingTankMovements[stationId] = fetchFuture;
+
+    try {
+      final movements = await fetchFuture;
+      _tankMovementsCache[stationId] = _TankMovementsCacheEntry(
+        fetchedAt: DateTime.now(),
+        movements: movements,
+      );
+      return movements;
+    } finally {
+      _pendingTankMovements.remove(stationId);
+    }
+  }
+
+  Future<List<TankMovementDto>> _downloadTankMovements(int stationId) async {
+    final response = await apiClient.post(
+      _tankMovementsPath,
+      body: {'StationID': stationId},
+    );
+
+    final movements = _asList(response)
+        .whereType<Map<String, dynamic>>()
+        .map(TankMovementDto.fromJson)
+        .where((movement) {
+          if (movement.stationId == null) {
+            return true;
+          }
+          return movement.stationId == stationId;
+        })
+        .toList();
+
+    return List.unmodifiable(movements);
+  }
+
+  bool _isTankMovementsCacheExpired(_TankMovementsCacheEntry entry) {
+    final age = DateTime.now().difference(entry.fetchedAt);
+    return age >= tankMovementsCacheDuration;
+  }
+
+  void _invalidateTankMovementsCache(int stationId) {
+    _tankMovementsCache.remove(stationId);
+    _pendingTankMovements.remove(stationId);
+  }
+
+  List<TankMovementDto> _filterMovementsForTank(
+    List<TankMovementDto> movements,
+    TankDto tank,
+  ) {
+    if (movements.isEmpty) {
+      return const <TankMovementDto>[];
+    }
+
+    final keys = <int>{if (tank.localId != null) tank.localId!, tank.id};
+
+    return movements
+        .where(
+          (movement) =>
+              movement.tankLocalId != null &&
+              keys.contains(movement.tankLocalId!),
+        )
+        .toList();
   }
 
   String _contextKey(String context) {
@@ -506,4 +601,11 @@ class RemoteGasStationRepository implements GasStationRepository {
       totalSale: totalSale,
     );
   }
+}
+
+class _TankMovementsCacheEntry {
+  _TankMovementsCacheEntry({required this.fetchedAt, required this.movements});
+
+  final DateTime fetchedAt;
+  final List<TankMovementDto> movements;
 }
