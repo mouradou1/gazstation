@@ -9,6 +9,7 @@ class LoginFormSection extends StatelessWidget {
     required this.obscurePassword,
     required this.onTogglePasswordVisibility,
     required this.onSubmit,
+    required this.isLoading,
   });
 
   final TextEditingController baseUrlController;
@@ -17,6 +18,7 @@ class LoginFormSection extends StatelessWidget {
   final bool obscurePassword;
   final VoidCallback onTogglePasswordVisibility;
   final VoidCallback onSubmit;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
@@ -74,8 +76,14 @@ class LoginFormSection extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           ElevatedButton(
-            onPressed: onSubmit,
-            child: const Text('Se connecter'),
+            onPressed: isLoading ? null : onSubmit,
+            child: isLoading
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Se connecter'),
           ),
           const SizedBox(height: 16),
           Row(
