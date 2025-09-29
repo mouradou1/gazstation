@@ -27,7 +27,6 @@ class FuelSummaryTable extends StatelessWidget {
         children: [
           _SummaryRow(
             label: 'Min :',
-            value: '${summary.minVolume.toStringAsFixed(0)} L',
             chipLabel: summary.minVolume.toStringAsFixed(0),
             chipColor: const Color(0xFFE74C3C),
             icon: Icons.arrow_downward,
@@ -35,7 +34,6 @@ class FuelSummaryTable extends StatelessWidget {
           const SizedBox(height: 12),
           _SummaryRow(
             label: 'Max :',
-            value: '${summary.maxVolume.toStringAsFixed(0)} L',
             chipLabel: summary.maxVolume.toStringAsFixed(0),
             chipColor: const Color(0xFF4CAF50),
             icon: Icons.arrow_upward,
@@ -43,7 +41,6 @@ class FuelSummaryTable extends StatelessWidget {
           const SizedBox(height: 12),
           _SummaryRow(
             label: 'Commencer par :',
-            value: '${summary.startVolume.toStringAsFixed(0)} L',
             chipLabel: summary.startVolume.toStringAsFixed(0),
             chipColor: const Color(0xFFE74C3C),
             icon: Icons.arrow_downward,
@@ -51,7 +48,6 @@ class FuelSummaryTable extends StatelessWidget {
           const SizedBox(height: 12),
           _SummaryRow(
             label: 'Terminer :',
-            value: '${summary.endVolume.toStringAsFixed(0)} L',
             chipLabel: summary.endVolume.toStringAsFixed(0),
             chipColor: const Color(0xFF4CAF50),
             icon: Icons.arrow_upward,
@@ -97,14 +93,12 @@ class FuelSummaryTable extends StatelessWidget {
 class _SummaryRow extends StatelessWidget {
   const _SummaryRow({
     required this.label,
-    required this.value,
     required this.chipLabel,
     required this.chipColor,
     required this.icon,
   });
 
   final String label;
-  final String value;
   final String chipLabel;
   final Color chipColor;
   final IconData icon;
@@ -116,18 +110,7 @@ class _SummaryRow extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(label, style: theme.textTheme.bodyMedium),
-        Row(
-          children: [
-            _ValueChip(icon: icon, color: chipColor, label: chipLabel),
-            const SizedBox(width: 18),
-            Text(
-              value,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
+        _ValueChip(icon: icon, color: chipColor, label: chipLabel),
       ],
     );
   }
