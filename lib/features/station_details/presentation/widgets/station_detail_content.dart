@@ -125,7 +125,7 @@ class StationDetailContent extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  const FuelTrendChartCard(),
+                  FuelTrendChartCard(logs: fuelTank.logs),
                 ],
               ),
             ),
