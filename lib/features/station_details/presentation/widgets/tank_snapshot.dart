@@ -12,6 +12,8 @@ class TankSnapshot extends StatelessWidget {
     this.showSeeDetails = true,
     this.onTap,
     this.isSelected = false,
+    // AJOUT DE CE PARAMÈTRE
+    this.useCardDecoration = true,
   });
 
   final FuelTank tank;
@@ -19,16 +21,12 @@ class TankSnapshot extends StatelessWidget {
   final bool showSeeDetails;
   final VoidCallback? onTap;
   final bool isSelected;
+  // AJOUT DE CE PARAMÈTRE
+  final bool useCardDecoration;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final percent = tank.fillPercent.clamp(0.0, 1.0);
-    final percentLabel = '${(percent * 100).toStringAsFixed(0)}%';
-    final isLow = percent <= tank.warningThresholdPercent;
-
-    // La couleur du point de statut est maintenant toujours verte pour correspondre à l'image.
-    final levelColor = const Color(0xFF38C172);
+    // ... (le reste du code de build reste identique jusqu'à la décoration)
 
     final borderRadius = BorderRadius.circular(28);
     final borderColor = isSelected ? AppTheme.navy : Colors.transparent;
@@ -43,7 +41,9 @@ class TankSnapshot extends StatelessWidget {
         onTap: onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          decoration: BoxDecoration(
+          // MODIFICATION ICI POUR LA DÉCORATION CONDITIONNELLE
+          decoration: useCardDecoration
+              ? BoxDecoration(
             color: Colors.white,
             borderRadius: borderRadius,
             border: Border.all(color: borderColor, width: isSelected ? 2 : 0),
@@ -54,9 +54,11 @@ class TankSnapshot extends StatelessWidget {
                 blurRadius: 24,
               ),
             ],
-          ),
+          )
+              : null, // Pas de décoration si useCardDecoration est faux
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
           child: Column(
+            // ... le reste du fichier ne change pas
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
@@ -69,14 +71,14 @@ class TankSnapshot extends StatelessWidget {
                         Text.rich(
                           TextSpan(
                             text: '${tank.label} ',
-                            style: theme.textTheme.titleSmall?.copyWith(
+                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
                               fontWeight: FontWeight.w700,
                             ),
                             children: [
                               TextSpan(
                                 text:
                                 '${tank.capacityLiters.toStringAsFixed(0)}L',
-                                style: theme.textTheme.bodyMedium?.copyWith(
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                   color: const Color(0xFF707A8A),
                                   fontWeight: FontWeight.normal,
                                 ),
@@ -85,7 +87,7 @@ class TankSnapshot extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 6),
-                        if (isLow)
+                        if (tank.fillPercent <= tank.warningThresholdPercent)
                           Row(
                             children: const [
                               Icon(
@@ -110,14 +112,24 @@ class TankSnapshot extends StatelessWidget {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      _StatusDot(color: levelColor),
+                      Container(
+                        height: 14,
+                        width: 14,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF38C172),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(color: const Color(0xFF38C172).withOpacity(0.4), blurRadius: 8),
+                          ],
+                        ),
+                      ),
                       const SizedBox(height: 12),
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
                             'Dernier synchro',
-                            style: theme.textTheme.bodySmall?.copyWith(
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               fontSize: 11,
                               color: const Color(0xFF7C8596),
                             ),
@@ -125,7 +137,7 @@ class TankSnapshot extends StatelessWidget {
                           const SizedBox(width: 6),
                           Text(
                             lastSyncLabel,
-                            style: theme.textTheme.bodySmall?.copyWith(
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
                               color: const Color(0xFF272B36),
@@ -138,7 +150,7 @@ class TankSnapshot extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 24),
-              _HorizontalTankGauge(tank: tank, percentLabel: percentLabel),
+              _HorizontalTankGauge(tank: tank, percentLabel: '${(tank.fillPercent * 100).toStringAsFixed(0)}%'),
               const SizedBox(height: 12),
               if (showSeeDetails)
                 Align(
@@ -152,7 +164,7 @@ class TankSnapshot extends StatelessWidget {
                         children: [
                           Text(
                             'Afficher plus',
-                            style: theme.textTheme.bodyMedium?.copyWith(
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               fontWeight: FontWeight.w700,
                               color: AppTheme.navy,
                             ),
@@ -185,6 +197,7 @@ class TankSnapshot extends StatelessWidget {
   }
 }
 
+// ... Le reste du fichier (_HorizontalTankGauge, etc.) ne change pas
 class _HorizontalTankGauge extends StatelessWidget {
   const _HorizontalTankGauge({required this.tank, required this.percentLabel});
 
@@ -448,26 +461,5 @@ class _GaugeConnectorPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _GaugeConnectorPainter oldDelegate) {
     return oldDelegate.start != start || oldDelegate.end != end;
-  }
-}
-
-class _StatusDot extends StatelessWidget {
-  const _StatusDot({required this.color});
-
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 14,
-      width: 14,
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(color: color.withOpacity(0.4), blurRadius: 8),
-        ],
-      ),
-    );
   }
 }
