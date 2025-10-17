@@ -1,4 +1,5 @@
-import 'package:gazstation/features/home/domain/entities/gas_station.dart';
+
+import '../domain/entities/gas_station.dart';
 
 final dummyStations = <GasStation>[
   GasStation(

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:gazstation/features/home/domain/entities/gas_station.dart';
+import 'package:gazstation/features/station_list/domain/entities/gas_station.dart';
 
 class TankLogTile extends StatelessWidget {
   const TankLogTile({

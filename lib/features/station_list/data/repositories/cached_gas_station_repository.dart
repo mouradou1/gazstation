@@ -1,7 +1,10 @@
 import 'dart:async';
 
-import 'package:gazstation/features/home/domain/entities/gas_station.dart';
-import 'package:gazstation/features/home/domain/repositories/gas_station_repository.dart';
+import '../../../fuel_summary/domain/entities/fuel_summary.dart';
+import '../../../pumps_dashboard/domain/entities/pump.dart';
+import '../../domain/entities/gas_station.dart';
+import '../../domain/repositories/gas_station_repository.dart';
+
 
 class CachedGasStationRepository implements GasStationRepository {
   CachedGasStationRepository({required this.remoteRepository});
@@ -35,7 +38,8 @@ class CachedGasStationRepository implements GasStationRepository {
   }
 
   @override
-  Future<GasStation?> fetchStationDetails(String id, {bool forceRefresh = false}) async {
+  Future<GasStation?> fetchStationDetails(String id,
+      {bool forceRefresh = false}) async {
     final station = await remoteRepository.fetchStationDetails(
       id,
       forceRefresh: forceRefresh,
@@ -68,5 +72,24 @@ class CachedGasStationRepository implements GasStationRepository {
       tankId,
       forceRefresh: forceRefresh,
     );
+  }
+
+  @override
+  Future<List<Pump>> fetchPumps(
+      String stationId, {
+        bool forceRefresh = false,
+      }) {
+    // Pour l'instant, on ne met pas en cache les pompes, on délègue directement.
+    return remoteRepository.fetchPumps(stationId, forceRefresh: forceRefresh);
+  }
+
+  @override
+  Future<List<FuelSummary>> fetchFuelSummary(
+      String stationId, {
+        bool forceRefresh = false,
+      }) {
+    // On ne met pas en cache pour l'instant
+    return remoteRepository.fetchFuelSummary(stationId,
+        forceRefresh: forceRefresh);
   }
 }

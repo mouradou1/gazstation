@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:gazstation/core/navigation/app_router.dart';
 import 'package:gazstation/core/theme/app_theme.dart';
-import 'package:gazstation/features/home/presentation/providers/gas_stations_providers.dart';
+import 'package:gazstation/features/station_list/presentation/providers/gas_stations_providers.dart';
 import 'package:gazstation/features/station_details/presentation/widgets/station_centered_message.dart';
 import 'package:gazstation/features/station_details/presentation/widgets/station_detail_content.dart';
 
@@ -47,6 +48,29 @@ class _StationDetailScreenState extends ConsumerState<StationDetailScreen> {
           icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
           onPressed: () => context.pop(),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.bar_chart_rounded, color: Colors.white),
+            onPressed: () {
+              context.pushNamed(
+                AppRoute.fuelSummary.name,
+                pathParameters: {'stationId': widget.stationId},
+              );
+            },
+            tooltip: 'Voir le résumé des cuves',
+          ),
+          IconButton(
+            icon: const Icon(Icons.local_gas_station_outlined, color: Colors.white),
+            onPressed: () {
+              context.pushNamed(
+                AppRoute.pumpsDashboard.name,
+                pathParameters: {'stationId': widget.stationId},
+              );
+            },
+            tooltip: 'Voir les pompes',
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: SafeArea(
         child: stationAsync.when(

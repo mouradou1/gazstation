@@ -4,11 +4,20 @@ import 'package:go_router/go_router.dart';
 import 'package:gazstation/core/theme/app_theme.dart';
 import 'package:gazstation/features/auth/presentation/screens/login_screen.dart';
 import 'package:gazstation/features/fuel_details/presentation/screens/fuel_detail_screen.dart';
-import 'package:gazstation/features/home/domain/entities/gas_station.dart';
-import 'package:gazstation/features/home/presentation/screens/stations_list_screen.dart';
+import 'package:gazstation/features/station_list/domain/entities/gas_station.dart';
+import 'package:gazstation/features/fuel_summary/presentation/screens/fuel_summary_screen.dart';
+import 'package:gazstation/features/pumps_dashboard/presentation/screens/pumps_dashboard_screen.dart';
+import 'package:gazstation/features/station_list/presentation/screens/stations_list_screen.dart';
 import 'package:gazstation/features/station_details/presentation/screens/station_detail_screen.dart';
 
-enum AppRoute { login, stations, stationDetail, fuelDetail }
+enum AppRoute {
+  login,
+  stations,
+  stationDetail,
+  fuelDetail,
+  pumpsDashboard,
+  fuelSummary
+}
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -31,7 +40,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               final stationId = state.pathParameters['stationId']!;
               return StationDetailScreen(stationId: stationId);
             },
-              routes: [
+            routes: [
               GoRoute(
                 path: 'fuel/:fuelId',
                 name: AppRoute.fuelDetail.name,
@@ -48,7 +57,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                       toolbarHeight: 84,
                       shape: const RoundedRectangleBorder(
                         borderRadius:
-                            BorderRadius.vertical(bottom: Radius.circular(32)),
+                        BorderRadius.vertical(bottom: Radius.circular(32)),
                       ),
                       titleSpacing: 0,
                       title: Padding(
@@ -59,9 +68,9 @@ final routerProvider = Provider<GoRouter>((ref) {
                               .textTheme
                               .titleMedium
                               ?.copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                              ),
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ),
@@ -75,6 +84,22 @@ final routerProvider = Provider<GoRouter>((ref) {
                       ),
                     ),
                   );
+                },
+              ),
+              GoRoute(
+                path: 'pumps',
+                name: AppRoute.pumpsDashboard.name,
+                builder: (context, state) {
+                  final stationId = state.pathParameters['stationId']!;
+                  return PumpsDashboardScreen(stationId: stationId);
+                },
+              ),
+              GoRoute(
+                path: 'summary',
+                name: AppRoute.fuelSummary.name,
+                builder: (context, state) {
+                  final stationId = state.pathParameters['stationId']!;
+                  return FuelSummaryScreen(stationId: stationId);
                 },
               ),
             ],

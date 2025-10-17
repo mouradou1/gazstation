@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:gazstation/core/navigation/app_router.dart';
-import 'package:gazstation/features/home/presentation/providers/gas_stations_providers.dart';
-import 'package:gazstation/features/home/presentation/widgets/station_card.dart';
-import 'package:gazstation/features/home/presentation/widgets/stations_list_header.dart';
+
+import '../providers/gas_stations_providers.dart';
+import '../widgets/station_card.dart';
+import '../widgets/stations_list_header.dart';
 
 class StationsListScreen extends ConsumerStatefulWidget {
   const StationsListScreen({super.key});

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:gazstation/core/theme/app_theme.dart';
-import 'package:gazstation/features/home/domain/entities/gas_station.dart';
+import 'package:gazstation/features/station_list/domain/entities/gas_station.dart';
 import 'package:gazstation/features/fuel_details/presentation/widgets/fuel_summary_table.dart';
 import 'package:gazstation/features/station_details/presentation/widgets/tank_snapshot.dart';
 

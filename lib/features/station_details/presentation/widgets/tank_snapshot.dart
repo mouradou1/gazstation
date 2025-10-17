@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:gazstation/core/theme/app_theme.dart';
-import 'package:gazstation/features/home/domain/entities/gas_station.dart';
+import 'package:gazstation/features/station_list/domain/entities/gas_station.dart';
 
 class TankSnapshot extends StatelessWidget {
   const TankSnapshot({

@@ -5,9 +5,14 @@ import 'dart:math';
 
 import 'package:gazstation/core/network/api_client.dart';
 import 'package:gazstation/core/network/repository_error.dart';
-import 'package:gazstation/features/home/data/models/remote_gas_station_models.dart';
-import 'package:gazstation/features/home/domain/entities/gas_station.dart';
-import 'package:gazstation/features/home/domain/repositories/gas_station_repository.dart';
+
+import '../../../fuel_summary/domain/entities/fuel_summary.dart';
+import '../../../pumps_dashboard/data/models/pump_dto.dart';
+import '../../../pumps_dashboard/data/models/volet_dto.dart';
+import '../../../pumps_dashboard/domain/entities/pump.dart';
+import '../../domain/entities/gas_station.dart';
+import '../../domain/repositories/gas_station_repository.dart';
+import '../models/remote_gas_station_models.dart';
 
 class RemoteGasStationRepository implements GasStationRepository {
   RemoteGasStationRepository({
@@ -23,14 +28,16 @@ class RemoteGasStationRepository implements GasStationRepository {
   final Duration tankMovementsCacheDuration;
   final Set<String> _silencedErrorContexts = <String>{};
   final Map<int, _TankMovementsCacheEntry> _tankMovementsCache =
-      <int, _TankMovementsCacheEntry>{};
+  <int, _TankMovementsCacheEntry>{};
   final Map<int, Future<List<TankMovementDto>>> _pendingTankMovements =
-      <int, Future<List<TankMovementDto>>>{};
+  <int, Future<List<TankMovementDto>>>{};
 
   String get _stationsPath => '$basePath/stations';
   String get _stationDetailsPath => '$basePath/Tires';
   String get _tanksPath => '$basePath/cuves';
   String get _tankMovementsPath => '$basePath/MTcuves';
+  String get _pumpsPath => '$basePath/pump2';
+  String get _voletsPath => '$basePath/volets';
 
   List<dynamic> _asList(dynamic data) => data is List ? data : const [];
 
@@ -40,6 +47,7 @@ class RemoteGasStationRepository implements GasStationRepository {
   Future<List<GasStation>> fetchStationsList({
     bool forceRefresh = false,
   }) async {
+    // ... (code existant)
     final stationsJson = _asList(await apiClient.get(_stationsPath));
     final stations = stationsJson
         .whereType<Map<String, dynamic>>()
@@ -47,8 +55,8 @@ class RemoteGasStationRepository implements GasStationRepository {
         .toList();
 
     final detailFutures = stations.map(
-      (station) => _guard<StationDetailsDto?>(
-        () => _fetchStationDetails(station.id),
+          (station) => _guard<StationDetailsDto?>(
+            () => _fetchStationDetails(station.id),
         null,
         context: 'stationDetailsList(${station.id})',
       ),
@@ -79,9 +87,10 @@ class RemoteGasStationRepository implements GasStationRepository {
 
   @override
   Future<GasStation?> fetchStationDetails(
-    String id, {
-    bool forceRefresh = false,
-  }) async {
+      String id, {
+        bool forceRefresh = false,
+      }) async {
+    // ... (code existant)
     final stationId = int.tryParse(id);
     if (stationId == null) {
       developer.log(
@@ -109,10 +118,11 @@ class RemoteGasStationRepository implements GasStationRepository {
 
   @override
   Future<FuelTank?> fetchTankById(
-    String stationId,
-    String tankId, {
-    bool forceRefresh = false,
-  }) async {
+      String stationId,
+      String tankId, {
+        bool forceRefresh = false,
+      }) async {
+    // ... (code existant)
     final station = await fetchStationDetails(
       stationId,
       forceRefresh: forceRefresh,
@@ -128,22 +138,114 @@ class RemoteGasStationRepository implements GasStationRepository {
     }
   }
 
+  @override
+  Future<List<Pump>> fetchPumps(
+      String stationId, {
+        bool forceRefresh = false,
+      }) async {
+    // ... (code existant)
+    final stationIdInt = int.tryParse(stationId);
+    if (stationIdInt == null) {
+      return const <Pump>[];
+    }
+
+    final pumpsFuture = _fetchPumps(stationIdInt);
+    final voletsFuture = _fetchVolets(stationIdInt);
+
+    final results = await Future.wait([pumpsFuture, voletsFuture]);
+
+    final pumps = results[0] as List<PumpDto>;
+    final volets = results[1] as List<VoletDto>;
+
+    final nozzlesByPumpId = <int, List<Nozzle>>{};
+    for (final volet in volets) {
+      final nozzle = Nozzle(
+        id: volet.id,
+        label: volet.label,
+        fuelType: volet.type,
+        volume: volet.volume,
+      );
+      (nozzlesByPumpId[volet.pumpId] ??= []).add(nozzle);
+    }
+
+    return pumps.map((pumpDto) {
+      return Pump(
+        id: pumpDto.id,
+        label: pumpDto.label,
+        nozzles: nozzlesByPumpId[pumpDto.id] ?? const <Nozzle>[],
+      );
+    }).toList();
+  }
+
+  @override
+  Future<List<FuelSummary>> fetchFuelSummary(
+      String stationId, {
+        bool forceRefresh = false,
+      }) async {
+    // TODO: Implémenter l'appel à l'API réelle quand l'endpoint sera disponible.
+    // Pour l'instant on simule avec les données factices pour pouvoir construire l'UI.
+    await Future.delayed(const Duration(milliseconds: 300));
+    return const [
+      FuelSummary(
+        fuelTypeName: 'DZL',
+        totalCapacityLiters: 75000,
+        realVolumeLiters: 70235,
+        theoreticalVolumeLiters: 71814,
+      ),
+      FuelSummary(
+        fuelTypeName: 'ESS',
+        totalCapacityLiters: 65000,
+        realVolumeLiters: 15000,
+        theoreticalVolumeLiters: 35104,
+      ),
+      FuelSummary(
+        fuelTypeName: 'GPL',
+        totalCapacityLiters: 35000,
+        realVolumeLiters: 3500,
+        theoreticalVolumeLiters: 30138,
+      ),
+    ];
+  }
+
+  // ... (toutes les autres méthodes privées comme _fetchPumps, _guard, _mapTank, etc. restent ici)
+  Future<List<PumpDto>> _fetchPumps(int stationId) async {
+    final response = await apiClient.post(
+      _pumpsPath,
+      body: {'StationID': stationId},
+    );
+    return _asList(response)
+        .whereType<Map<String, dynamic>>()
+        .map(PumpDto.fromJson)
+        .toList();
+  }
+
+  Future<List<VoletDto>> _fetchVolets(int stationId) async {
+    final response = await apiClient.post(
+      _voletsPath,
+      body: {'StationID': stationId},
+    );
+    return _asList(response)
+        .whereType<Map<String, dynamic>>()
+        .map(VoletDto.fromJson)
+        .toList();
+  }
+
   Future<GasStation> _mapStationAsync(
-    StationDto station, {
-    bool forceRefresh = false,
-  }) async {
+      StationDto station, {
+        bool forceRefresh = false,
+      }) async {
     final detailsFuture = _guard<StationDetailsDto?>(
-      () => _fetchStationDetails(station.id),
+          () => _fetchStationDetails(station.id),
       null,
       context: 'stationDetails(${station.id})',
     );
     final tanksFuture = _guard<List<TankDto>>(
-      () => _fetchTanks(station.id),
+          () => _fetchTanks(station.id),
       const <TankDto>[],
       context: 'stationTanks(${station.id})',
     );
     final movementsFuture = _guard<List<TankMovementDto>>(
-      () => _getTankMovementsByStation(station.id, forceRefresh: forceRefresh),
+          () => _getTankMovementsByStation(station.id, forceRefresh: forceRefresh),
       const <TankMovementDto>[],
       context: 'tankMovements(${station.id})',
     );
@@ -211,9 +313,9 @@ class RemoteGasStationRepository implements GasStationRepository {
   }
 
   Future<List<TankMovementDto>> _getTankMovementsByStation(
-    int stationId, {
-    bool forceRefresh = false,
-  }) async {
+      int stationId, {
+        bool forceRefresh = false,
+      }) async {
     if (forceRefresh) {
       _invalidateTankMovementsCache(stationId);
     }
@@ -255,11 +357,11 @@ class RemoteGasStationRepository implements GasStationRepository {
         .whereType<Map<String, dynamic>>()
         .map(TankMovementDto.fromJson)
         .where((movement) {
-          if (movement.stationId == null) {
-            return true;
-          }
-          return movement.stationId == stationId;
-        })
+      if (movement.stationId == null) {
+        return true;
+      }
+      return movement.stationId == stationId;
+    })
         .toList();
 
     return List.unmodifiable(movements);
@@ -276,9 +378,9 @@ class RemoteGasStationRepository implements GasStationRepository {
   }
 
   List<TankMovementDto> _filterMovementsForTank(
-    List<TankMovementDto> movements,
-    TankDto tank,
-  ) {
+      List<TankMovementDto> movements,
+      TankDto tank,
+      ) {
     if (movements.isEmpty) {
       return const <TankMovementDto>[];
     }
@@ -288,9 +390,9 @@ class RemoteGasStationRepository implements GasStationRepository {
     return movements
         .where(
           (movement) =>
-              movement.tankLocalId != null &&
-              keys.contains(movement.tankLocalId!),
-        )
+      movement.tankLocalId != null &&
+          keys.contains(movement.tankLocalId!),
+    )
         .toList();
   }
 
@@ -378,11 +480,11 @@ class RemoteGasStationRepository implements GasStationRepository {
       final reason = _apiErrorMessage(error);
       final sanitizedReason = reason.isEmpty ? 'Erreur inconnue' : reason;
       message =
-          'Impossible de récupérer $scope. (${error.statusCode}) $sanitizedReason';
+      'Impossible de récupérer $scope. (${error.statusCode}) $sanitizedReason';
     } else if (error is TimeoutException) {
       title = 'Temps dépassé';
       message =
-          'Le chargement de $scope prend plus de temps que prévu. Veuillez réessayer.';
+      'Le chargement de $scope prend plus de temps que prévu. Veuillez réessayer.';
     } else {
       title = 'Erreur inattendue';
       message = 'Une erreur est survenue lors de la récupération de $scope.';
@@ -392,10 +494,10 @@ class RemoteGasStationRepository implements GasStationRepository {
   }
 
   Future<T> _guard<T>(
-    Future<T> Function() runner,
-    T fallback, {
-    required String context,
-  }) async {
+      Future<T> Function() runner,
+      T fallback, {
+        required String context,
+      }) async {
     final contextKey = _contextKey(context);
     try {
       final result = await runner();
@@ -441,17 +543,17 @@ class RemoteGasStationRepository implements GasStationRepository {
   }
 
   FuelTank _mapTank(
-    TankDto tank,
-    List<TankMovementDto> movements,
-    List<PumpTransactionDto> transactions,
-  ) {
+      TankDto tank,
+      List<TankMovementDto> movements,
+      List<PumpTransactionDto> transactions,
+      ) {
     final capacity = (tank.capacityLiters == null || tank.capacityLiters == 0)
         ? (tank.currentVolume ?? 1)
         : tank.capacityLiters!;
     final warningThreshold =
-        (tank.warningThresholdPercent != null &&
-            tank.warningThresholdPercent! > 0 &&
-            tank.warningThresholdPercent! <= 1)
+    (tank.warningThresholdPercent != null &&
+        tank.warningThresholdPercent! > 0 &&
+        tank.warningThresholdPercent! <= 1)
         ? tank.warningThresholdPercent!
         : 0.1;
 
@@ -478,10 +580,10 @@ class RemoteGasStationRepository implements GasStationRepository {
   }
 
   List<TankLogEntry> _buildLogEntries(
-    List<TankMovementDto> movements,
-    TankDto tank,
-    List<PumpTransactionDto> transactions,
-  ) {
+      List<TankMovementDto> movements,
+      TankDto tank,
+      List<PumpTransactionDto> transactions,
+      ) {
     if (movements.isEmpty && transactions.isEmpty) {
       return const <TankLogEntry>[];
     }
@@ -526,20 +628,20 @@ class RemoteGasStationRepository implements GasStationRepository {
     return fallbackTransactions
         .map(
           (tx) => TankLogEntry(
-            dateTime: tx.dateTime!,
-            volumeLiters: tx.volume ?? 0,
-            heightCm: tank.currentHeight ?? 0,
-            variationPercent: tx.volume ?? 0,
-          ),
-        )
+        dateTime: tx.dateTime!,
+        volumeLiters: tx.volume ?? 0,
+        heightCm: tank.currentHeight ?? 0,
+        variationPercent: tx.volume ?? 0,
+      ),
+    )
         .toList();
   }
 
   DateTime _resolveLastSync(
-    TankDto tank,
-    List<TankMovementDto> movements,
-    List<TankLogEntry> logs,
-  ) {
+      TankDto tank,
+      List<TankMovementDto> movements,
+      List<TankLogEntry> logs,
+      ) {
     if (tank.lastSync != null) {
       return tank.lastSync!;
     }
@@ -548,11 +650,11 @@ class RemoteGasStationRepository implements GasStationRepository {
         .map((movement) => movement.modifiedAt)
         .whereType<DateTime>()
         .fold<DateTime?>(
-          null,
+      null,
           (previous, current) => previous == null || current.isAfter(previous)
-              ? current
-              : previous,
-        );
+          ? current
+          : previous,
+    );
 
     if (latestMovementDate != null) {
       return latestMovementDate;

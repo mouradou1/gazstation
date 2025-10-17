@@ -3,7 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:gazstation/core/navigation/app_router.dart';
-import 'package:gazstation/features/home/domain/entities/gas_station.dart';
+import 'package:gazstation/features/station_list/domain/entities/gas_station.dart';
 import 'package:gazstation/features/station_details/presentation/widgets/fuel_trend_chart_card.dart';
 import 'package:gazstation/features/station_details/presentation/widgets/tank_log_tile.dart';
 import 'package:gazstation/features/station_details/presentation/widgets/tank_snapshot.dart';

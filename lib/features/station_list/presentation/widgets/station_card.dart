@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:gazstation/core/theme/app_theme.dart';
-import 'package:gazstation/features/home/domain/entities/gas_station.dart';
+
+import '../../domain/entities/gas_station.dart';
 
 class StationCard extends StatelessWidget {
   const StationCard({super.key, required this.station, required this.onTap});
