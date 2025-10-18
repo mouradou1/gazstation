@@ -10,28 +10,43 @@ class PumpsList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // TODO: Calculer les totaux réels plus tard
-    final totalGasoil = 0.0;
-    final totalEssence = 0.0;
-    final totalGPL = 0.0;
+    // CORRECTION : Calcul des totaux réels
+    double totalGasoil = 0.0;
+    double totalEssence = 0.0;
+    double totalGPL = 0.0;
+
+    for (final pump in pumps) {
+      for (final nozzle in pump.nozzles) {
+        switch (nozzle.fuelType) {
+          case 1: // GAZOIL
+            totalGasoil += nozzle.volume;
+            break;
+          case 2: // ESSENCE
+            totalEssence += nozzle.volume;
+            break;
+          case 3: // GPL
+            totalGPL += nozzle.volume;
+            break;
+        }
+      }
+    }
+    // FIN DE LA CORRECTION
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
         children: [
-          // L'ancien footer sombre est remplacé par ce header blanc
           _TotalsHeader(
             totalGasoil: totalGasoil,
             totalEssence: totalEssence,
             totalGPL: totalGPL,
           ),
           const SizedBox(height: 24),
-          // Le Wrap contient maintenant les PumpCards (qui seront mises à jour)
           Wrap(
             spacing: 16,
             runSpacing: 16,
             children: pumps
-                .map((pump) => PumpCard(pump: pump)) // PumpCard sera mis à jour
+                .map((pump) => PumpCard(pump: pump))
                 .toList(),
           ),
         ],

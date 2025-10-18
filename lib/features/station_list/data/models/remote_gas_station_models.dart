@@ -1,3 +1,5 @@
+// lib/features/station_list/data/models/remote_gas_station_models.dart
+
 class StationDto {
   StationDto({
     required this.id,
@@ -80,17 +82,17 @@ class TankDto {
           ? (json['Libelle'] as String).trim()
           : 'Cuve ${json['id']}',
       capacityLiters:
-          parseDouble(json['Volume']) ??
+      parseDouble(json['Volume']) ??
           parseDouble(json['VolumeLitreCalculer']),
       currentVolume:
-          parseDouble(json['NiveauLitre']) ??
+      parseDouble(json['NiveauLitre']) ??
           parseDouble(json['VolumeLitreCalculer']),
       currentHeight: parseDouble(json['Niveau']) ?? parseDouble(json['calibr']),
       warningThresholdPercent: json['Token'] is num
           ? (json['Token'] as num).toDouble() / 100
           : null,
       lastSync:
-          parseDate(json['ModifieLe'] as String?) ??
+      parseDate(json['ModifieLe'] as String?) ??
           parseDate(json['AjouterLe'] as String?),
     );
   }
@@ -115,6 +117,7 @@ class PumpTransactionDto {
     this.totalVolume,
     this.amount,
     this.dateTime,
+    this.fuelGradeName, // CHAMP AJOUTÉ
   });
 
   factory PumpTransactionDto.fromJson(Map<String, dynamic> json) {
@@ -143,8 +146,9 @@ class PumpTransactionDto {
       totalVolume: parseDouble(json['TotalVolume']),
       amount: parseDouble(json['Amount']),
       dateTime:
-          parseDate(json['DateTime'] as String?) ??
+      parseDate(json['DateTime'] as String?) ??
           parseDate(json['DateTimeStart'] as String?),
+      fuelGradeName: json['FuelGradeName'] as String?, // CHAMP AJOUTÉ
     );
   }
 
@@ -155,7 +159,9 @@ class PumpTransactionDto {
   final double? totalVolume;
   final double? amount;
   final DateTime? dateTime;
+  final String? fuelGradeName; // CHAMP AJOUTÉ
 }
+
 
 class TankMovementDto {
   TankMovementDto({
