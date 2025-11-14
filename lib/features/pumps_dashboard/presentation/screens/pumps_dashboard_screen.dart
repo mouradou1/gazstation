@@ -44,15 +44,18 @@ class PumpsDashboardScreen extends ConsumerWidget {
       ),
       body: SafeArea(
         child: pumpsAsync.when(
-          data: (pumps) {
-            if (pumps.isEmpty) {
+          data: (data) {
+            if (data.pumps.isEmpty) {
               return const StationCenteredMessage(
                 title: 'Aucune pompe trouvée',
                 message: 'Aucune pompe n\'est disponible pour cette station.',
               );
             }
             // Ce widget (PumpsList) sera mis à jour au prochain tour
-            return PumpsList(pumps: pumps);
+            return PumpsList(
+              pumps: data.pumps,
+              transactions: data.transactions,
+            );
           },
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, _) => StationCenteredMessage(

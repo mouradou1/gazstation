@@ -1,12 +1,7 @@
 // lib/features/station_list/data/models/remote_gas_station_models.dart
 
 class StationDto {
-  StationDto({
-    required this.id,
-    required this.name,
-    this.status,
-    this.address,
-  });
+  StationDto({required this.id, required this.name, this.status, this.address});
 
   factory StationDto.fromJson(Map<String, dynamic> json) {
     return StationDto(
@@ -82,17 +77,17 @@ class TankDto {
           ? (json['Libelle'] as String).trim()
           : 'Cuve ${json['id']}',
       capacityLiters:
-      parseDouble(json['Volume']) ??
+          parseDouble(json['Volume']) ??
           parseDouble(json['VolumeLitreCalculer']),
       currentVolume:
-      parseDouble(json['NiveauLitre']) ??
+          parseDouble(json['NiveauLitre']) ??
           parseDouble(json['VolumeLitreCalculer']),
       currentHeight: parseDouble(json['Niveau']) ?? parseDouble(json['calibr']),
       warningThresholdPercent: json['Token'] is num
           ? (json['Token'] as num).toDouble() / 100
           : null,
       lastSync:
-      parseDate(json['ModifieLe'] as String?) ??
+          parseDate(json['ModifieLe'] as String?) ??
           parseDate(json['AjouterLe'] as String?),
     );
   }
@@ -112,6 +107,8 @@ class PumpTransactionDto {
   PumpTransactionDto({
     required this.id,
     required this.stationId,
+    this.pumpId,
+    this.nozzleId,
     this.tankId,
     this.volume,
     this.totalVolume,
@@ -141,12 +138,14 @@ class PumpTransactionDto {
     return PumpTransactionDto(
       id: json['id'] as int,
       stationId: json['StationID'] as int,
+      pumpId: json['Pump'] is num ? (json['Pump'] as num).toInt() : null,
+      nozzleId: json['Nozzle'] is num ? (json['Nozzle'] as num).toInt() : null,
       tankId: json['Tank'] as int?,
       volume: parseDouble(json['Volume']),
       totalVolume: parseDouble(json['TotalVolume']),
       amount: parseDouble(json['Amount']),
       dateTime:
-      parseDate(json['DateTime'] as String?) ??
+          parseDate(json['DateTime'] as String?) ??
           parseDate(json['DateTimeStart'] as String?),
       fuelGradeName: json['FuelGradeName'] as String?, // CHAMP AJOUTÉ
     );
@@ -154,6 +153,8 @@ class PumpTransactionDto {
 
   final int id;
   final int stationId;
+  final int? pumpId;
+  final int? nozzleId;
   final int? tankId;
   final double? volume;
   final double? totalVolume;
@@ -161,7 +162,6 @@ class PumpTransactionDto {
   final DateTime? dateTime;
   final String? fuelGradeName; // CHAMP AJOUTÉ
 }
-
 
 class TankMovementDto {
   TankMovementDto({

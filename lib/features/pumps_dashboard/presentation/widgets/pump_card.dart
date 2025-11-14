@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:gazstation/core/theme/app_theme.dart';
 import 'package:gazstation/core/utils/formatters.dart';
 import 'package:gazstation/features/pumps_dashboard/domain/entities/pump.dart';
+import 'package:gazstation/features/station_list/data/models/remote_gas_station_models.dart';
 
 class PumpCard extends StatelessWidget {
-  const PumpCard({super.key, required this.pump});
+  const PumpCard({super.key, required this.pump, required this.transactions});
 
   final Pump pump;
+  final List<PumpTransactionDto> transactions;
 
   // Fonction utilitaire pour mapper le type de carburant à un nom et une couleur
   ({String name, Color color}) _getFuelInfo(int fuelType) {
@@ -79,11 +81,18 @@ class PumpCard extends StatelessWidget {
           // Affiche chaque pistolet de la pompe
           ...pump.nozzles.map((nozzle) {
             final fuelInfo = _getFuelInfo(nozzle.fuelType);
+            final nozzleAmount = transactions
+                .where((transaction) => transaction.nozzleId == nozzle.id)
+                .fold<double>(
+                  0,
+                  (sum, transaction) => sum + (transaction.amount ?? 0),
+                );
             return _NozzleRow(
               fuelName: fuelInfo.name,
               fuelColor: fuelInfo.color,
               voletLabel: nozzle.label,
               volume: nozzle.volume,
+              amount: nozzleAmount,
             );
           }),
         ],
@@ -99,12 +108,14 @@ class _NozzleRow extends StatelessWidget {
     required this.fuelColor,
     required this.voletLabel,
     required this.volume,
+    required this.amount,
   });
 
   final String fuelName;
   final Color fuelColor;
   final String voletLabel;
   final double volume;
+  final double amount;
 
   @override
   Widget build(BuildContext context) {
@@ -134,8 +145,9 @@ class _NozzleRow extends StatelessWidget {
           Expanded(
             child: Text(
               voletLabel,
-              style: theme.textTheme.bodyMedium
-                  ?.copyWith(color: const Color(0xFF707A8A)),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: const Color(0xFF707A8A),
+              ),
             ),
           ),
           const SizedBox(width: 16),
@@ -150,9 +162,9 @@ class _NozzleRow extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 2),
-              const Text(
-                '0 DA', // Montant en dur pour l'instant
-                style: TextStyle(color: Color(0xFF707A8A), fontSize: 14),
+              Text(
+                '${formatNumber(amount, decimals: 2)} DA',
+                style: const TextStyle(color: Color(0xFF707A8A), fontSize: 14),
               ),
             ],
           ),

@@ -5,7 +5,6 @@ import '../../../pumps_dashboard/domain/entities/pump.dart';
 import '../../domain/entities/gas_station.dart';
 import '../../domain/repositories/gas_station_repository.dart';
 
-
 class CachedGasStationRepository implements GasStationRepository {
   CachedGasStationRepository({required this.remoteRepository});
 
@@ -24,7 +23,9 @@ class CachedGasStationRepository implements GasStationRepository {
   }
 
   @override
-  Future<List<GasStation>> fetchStationsList({bool forceRefresh = false}) async {
+  Future<List<GasStation>> fetchStationsList({
+    bool forceRefresh = false,
+  }) async {
     if (!forceRefresh && _isCacheValid && _stationsCache != null) {
       return _stationsCache!;
     }
@@ -38,8 +39,10 @@ class CachedGasStationRepository implements GasStationRepository {
   }
 
   @override
-  Future<GasStation?> fetchStationDetails(String id,
-      {bool forceRefresh = false}) async {
+  Future<GasStation?> fetchStationDetails(
+    String id, {
+    bool forceRefresh = false,
+  }) async {
     final station = await remoteRepository.fetchStationDetails(
       id,
       forceRefresh: forceRefresh,
@@ -61,10 +64,10 @@ class CachedGasStationRepository implements GasStationRepository {
 
   @override
   Future<FuelTank?> fetchTankById(
-      String stationId,
-      String tankId, {
-        bool forceRefresh = false,
-      }) {
+    String stationId,
+    String tankId, {
+    bool forceRefresh = false,
+  }) {
     // The fetchStationDetails call in the remote repository will be cached,
     // so this indirectly benefits from the cache as well.
     return remoteRepository.fetchTankById(
@@ -75,21 +78,23 @@ class CachedGasStationRepository implements GasStationRepository {
   }
 
   @override
-  Future<List<Pump>> fetchPumps(
-      String stationId, {
-        bool forceRefresh = false,
-      }) {
+  Future<PumpsWithTransactions> fetchPumps(
+    String stationId, {
+    bool forceRefresh = false,
+  }) {
     // Pour l'instant, on ne met pas en cache les pompes, on délègue directement.
     return remoteRepository.fetchPumps(stationId, forceRefresh: forceRefresh);
   }
 
   @override
   Future<List<FuelSummary>> fetchFuelSummary(
-      String stationId, {
-        bool forceRefresh = false,
-      }) {
+    String stationId, {
+    bool forceRefresh = false,
+  }) {
     // On ne met pas en cache pour l'instant
-    return remoteRepository.fetchFuelSummary(stationId,
-        forceRefresh: forceRefresh);
+    return remoteRepository.fetchFuelSummary(
+      stationId,
+      forceRefresh: forceRefresh,
+    );
   }
 }
