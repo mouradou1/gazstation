@@ -6,6 +6,7 @@ import 'package:gazstation/core/network/api_client_provider.dart';
 import 'package:gazstation/features/auth/presentation/providers/auth_controller.dart';
 import 'package:gazstation/features/auth/presentation/widgets/login_form_section.dart';
 import 'package:gazstation/features/auth/presentation/widgets/login_header.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -19,11 +20,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _rememberMe = true;
+
+  static const _rememberMeKey = 'remember_me';
+  static const _savedBaseUrlKey = 'saved_base_url';
+  static const _savedUsernameKey = 'saved_username';
 
   @override
   void initState() {
     super.initState();
     _baseUrlController.text = ref.read(apiBaseUrlProvider);
+    _loadRememberedCredentials();
   }
 
   @override
@@ -32,6 +39,50 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadRememberedCredentials() async {
+    final prefs = await SharedPreferences.getInstance();
+    final remember = prefs.getBool(_rememberMeKey) ?? true;
+    final savedBaseUrl = prefs.getString(_savedBaseUrlKey);
+    final savedUsername = prefs.getString(_savedUsernameKey);
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _rememberMe = remember;
+      if (remember) {
+        if (savedBaseUrl != null && savedBaseUrl.isNotEmpty) {
+          _baseUrlController.text = savedBaseUrl;
+          final notifier = ref.read(apiBaseUrlProvider.notifier);
+          if (notifier.state != savedBaseUrl) {
+            notifier.state = savedBaseUrl;
+          }
+        }
+        if (savedUsername != null) {
+          _emailController.text = savedUsername;
+        }
+      }
+    });
+  }
+
+  Future<void> _persistRememberedCredentials({
+    required String baseUrl,
+    required String username,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_rememberMeKey, true);
+    await prefs.setString(_savedBaseUrlKey, baseUrl);
+    await prefs.setString(_savedUsernameKey, username);
+  }
+
+  Future<void> _clearRememberedCredentials() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_rememberMeKey, false);
+    await prefs.remove(_savedBaseUrlKey);
+    await prefs.remove(_savedUsernameKey);
   }
 
   Future<void> _handleLogin() async {
@@ -63,6 +114,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
 
     if (user != null) {
+      if (_rememberMe) {
+        await _persistRememberedCredentials(
+          baseUrl: baseUrl,
+          username: username,
+        );
+      } else {
+        await _clearRememberedCredentials();
+      }
       context.goNamed(AppRoute.stations.name);
       return;
     }
@@ -71,6 +130,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         ref.read(authControllerProvider).errorMessage ??
         'Connexion impossible. Veuillez vérifier vos informations.';
     _showError(errorMessage);
+  }
+
+  void _toggleRememberMe(bool value) {
+    setState(() => _rememberMe = value);
+    if (!value) {
+      _clearRememberedCredentials();
+    }
   }
 
   void _showError(String message) {
@@ -98,9 +164,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 emailController: _emailController,
                 passwordController: _passwordController,
                 obscurePassword: _obscurePassword,
+                rememberMe: _rememberMe,
                 onTogglePasswordVisibility: () =>
                     setState(() => _obscurePassword = !_obscurePassword),
                 onSubmit: _handleLogin,
+                onRememberMeChanged: _toggleRememberMe,
                 isLoading: authState.isLoading,
               ),
             ],

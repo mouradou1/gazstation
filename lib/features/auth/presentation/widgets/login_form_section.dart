@@ -7,7 +7,9 @@ class LoginFormSection extends StatelessWidget {
     required this.emailController,
     required this.passwordController,
     required this.obscurePassword,
+    required this.rememberMe,
     required this.onTogglePasswordVisibility,
+    required this.onRememberMeChanged,
     required this.onSubmit,
     required this.isLoading,
   });
@@ -16,7 +18,9 @@ class LoginFormSection extends StatelessWidget {
   final TextEditingController emailController;
   final TextEditingController passwordController;
   final bool obscurePassword;
+  final bool rememberMe;
   final VoidCallback onTogglePasswordVisibility;
+  final ValueChanged<bool> onRememberMeChanged;
   final VoidCallback onSubmit;
   final bool isLoading;
 
@@ -65,6 +69,17 @@ class LoginFormSection extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
+          Row(
+            children: [
+              Checkbox(
+                value: rememberMe,
+                onChanged: (value) => onRememberMeChanged(value ?? rememberMe),
+              ),
+              const SizedBox(width: 8),
+              Text('Se souvenir de moi', style: theme.textTheme.bodyMedium),
+            ],
+          ),
+          const SizedBox(height: 4),
           Align(
             alignment: Alignment.centerRight,
             child: TextButton(

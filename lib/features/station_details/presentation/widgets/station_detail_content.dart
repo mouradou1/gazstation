@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:gazstation/core/navigation/app_router.dart';
+import 'package:gazstation/core/utils/formatters.dart';
 import 'package:gazstation/features/station_list/domain/entities/gas_station.dart';
 import 'package:gazstation/features/station_details/presentation/widgets/fuel_trend_chart_card.dart';
 import 'package:gazstation/features/station_details/presentation/widgets/tank_log_tile.dart';
@@ -13,12 +14,18 @@ class StationDetailContent extends StatelessWidget {
     super.key,
     required this.station,
     required this.selectedTankId,
+    required this.lastRefreshAt,
     required this.onSelectTank,
+    required this.isRefreshing,
+    this.errorMessage,
   });
 
   final GasStation station;
   final String? selectedTankId;
+  final DateTime? lastRefreshAt;
   final ValueChanged<String> onSelectTank;
+  final bool isRefreshing;
+  final String? errorMessage;
 
   @override
   Widget build(BuildContext context) {
@@ -52,6 +59,61 @@ class StationDetailContent extends StatelessWidget {
                   station.address,
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Dernière synchronisation',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: const Color(0xFF7C8596),
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        Text(
+                          lastRefreshAt != null
+                              ? formatDateTime(lastRefreshAt!)
+                              : 'Synchronisation en cours...',
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xFF1F2431),
+                              ),
+                        ),
+                        if (isRefreshing && lastRefreshAt != null)
+                          const Padding(
+                            padding: EdgeInsets.only(left: 8),
+                            child: SizedBox(
+                              width: 12,
+                              height: 12,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+                if (errorMessage != null && errorMessage!.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF2E5),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      errorMessage!,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: const Color(0xFFB45D00),
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 16),
                 if (tanks.isEmpty)
                   Container(

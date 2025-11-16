@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:gazstation/core/navigation/app_router.dart';
 import 'package:gazstation/core/theme/app_theme.dart';
+import 'package:gazstation/features/station_list/domain/entities/gas_station.dart';
 import 'package:gazstation/features/station_list/presentation/providers/gas_stations_providers.dart';
 import 'package:gazstation/features/station_details/presentation/widgets/station_centered_message.dart';
 import 'package:gazstation/features/station_details/presentation/widgets/station_detail_content.dart';
@@ -19,11 +22,92 @@ class StationDetailScreen extends ConsumerStatefulWidget {
 
 class _StationDetailScreenState extends ConsumerState<StationDetailScreen> {
   String? _selectedTankId;
+  DateTime? _lastRefreshAt;
+  GasStation? _latestStation;
+  Timer? _refreshTimer;
+  ProviderSubscription<AsyncValue<GasStation?>>? _stationSubscription;
+  bool _isRefreshing = true;
+
+  static const _refreshInterval = Duration(minutes: 1);
+
+  @override
+  void initState() {
+    super.initState();
+    _listenToStationUpdates();
+    _startAutoRefresh();
+  }
+
+  @override
+  void didUpdateWidget(covariant StationDetailScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.stationId != widget.stationId) {
+      _selectedTankId = null;
+      _lastRefreshAt = null;
+      _latestStation = null;
+      _stationSubscription?.close();
+      _listenToStationUpdates();
+      _startAutoRefresh();
+    }
+  }
+
+  @override
+  void dispose() {
+    _stationSubscription?.close();
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  void _listenToStationUpdates() {
+    _stationSubscription = ref.listenManual<AsyncValue<GasStation?>>(
+      stationDetailsProvider(widget.stationId),
+      (_, next) {
+        next.when(
+          data: (station) {
+            if (!mounted) {
+              return;
+            }
+            setState(() {
+              _latestStation = station;
+              _lastRefreshAt = DateTime.now();
+              _isRefreshing = false;
+            });
+          },
+          loading: () {
+            if (!mounted) {
+              return;
+            }
+            setState(() => _isRefreshing = true);
+          },
+          error: (_, __) {
+            if (!mounted) {
+              return;
+            }
+            setState(() => _isRefreshing = false);
+          },
+        );
+      },
+    );
+  }
+
+  void _startAutoRefresh() {
+    _refreshTimer?.cancel();
+    _refreshTimer = Timer.periodic(_refreshInterval, (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _isRefreshing = true);
+      ref.invalidate(stationDetailsProvider(widget.stationId));
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final stationAsync = ref.watch(stationDetailsProvider(widget.stationId));
-    final appBarTitle = stationAsync.value?.name ?? 'Détails station';
+    final effectiveStation = stationAsync.maybeWhen(
+      data: (station) => station,
+      orElse: () => _latestStation,
+    );
+    final appBarTitle = effectiveStation?.name ?? 'Détails station';
 
     return Scaffold(
       appBar: AppBar(
@@ -60,7 +144,10 @@ class _StationDetailScreenState extends ConsumerState<StationDetailScreen> {
             tooltip: 'Voir le résumé des cuves',
           ),
           IconButton(
-            icon: const Icon(Icons.local_gas_station_outlined, color: Colors.white),
+            icon: const Icon(
+              Icons.local_gas_station_outlined,
+              color: Colors.white,
+            ),
             onPressed: () {
               context.pushNamed(
                 AppRoute.pumpsDashboard.name,
@@ -84,14 +171,43 @@ class _StationDetailScreenState extends ConsumerState<StationDetailScreen> {
             return StationDetailContent(
               station: station,
               selectedTankId: _selectedTankId,
+              lastRefreshAt: _lastRefreshAt,
+              isRefreshing: _isRefreshing,
               onSelectTank: (value) => setState(() => _selectedTankId = value),
             );
           },
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => StationCenteredMessage(
-            title: 'Erreur',
-            message: 'Impossible de charger la station.\n$error',
-          ),
+          loading: () {
+            final station = effectiveStation;
+            if (station != null) {
+              return StationDetailContent(
+                station: station,
+                selectedTankId: _selectedTankId,
+                lastRefreshAt: _lastRefreshAt,
+                isRefreshing: _isRefreshing,
+                onSelectTank: (value) =>
+                    setState(() => _selectedTankId = value),
+              );
+            }
+            return const Center(child: CircularProgressIndicator());
+          },
+          error: (error, _) {
+            final station = _latestStation;
+            if (station != null) {
+              return StationDetailContent(
+                station: station,
+                selectedTankId: _selectedTankId,
+                lastRefreshAt: _lastRefreshAt,
+                isRefreshing: false,
+                onSelectTank: (value) =>
+                    setState(() => _selectedTankId = value),
+                errorMessage: 'Dernière tentative échouée.\n$error',
+              );
+            }
+            return StationCenteredMessage(
+              title: 'Erreur',
+              message: 'Impossible de charger la station.\n$error',
+            );
+          },
         ),
       ),
     );
