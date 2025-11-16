@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:gazstation/core/utils/formatters.dart';
 import 'package:gazstation/features/station_list/domain/entities/gas_station.dart';
 
 class FuelTrendChartCard extends StatefulWidget {
@@ -142,11 +143,13 @@ class _FuelTrendChartCardState extends State<FuelTrendChartCard> {
       (date) => DateTime(date.year, date.month, date.day, date.hour),
     );
 
-    return _mapCollapsedToPoints(
+    final buckets = _generateHourlyBuckets(latest, 24);
+
+    return _mapBuckets(
       collapsed,
+      buckets,
       primaryLabel: (key) => '${key.hour.toString().padLeft(2, '0')}h',
       secondaryLabel: (key) => key.day.toString().padLeft(2, '0'),
-      maxPoints: 12,
     );
   }
 
@@ -163,9 +166,11 @@ class _FuelTrendChartCardState extends State<FuelTrendChartCard> {
       filtered,
       (date) => DateTime(date.year, date.month, date.day),
     );
+    final buckets = _generateDailyBuckets(latest, 7);
 
-    return _mapCollapsedToPoints(
+    return _mapBuckets(
       collapsed,
+      buckets,
       primaryLabel: (key) => _weekdayLabel(key.weekday),
       secondaryLabel: (key) => key.day.toString().padLeft(2, '0'),
     );
@@ -180,13 +185,17 @@ class _FuelTrendChartCardState extends State<FuelTrendChartCard> {
       return const <_TrendPoint>[];
     }
 
-    final collapsed = _collapseEntries(filtered, _startOfWeek);
+    final collapsed = _collapseEntries(
+      filtered,
+      (date) => DateTime(date.year, date.month, date.day),
+    );
+    final buckets = _generateDailyBuckets(latest, 30);
 
-    return _mapCollapsedToPoints(
+    return _mapBuckets(
       collapsed,
-      primaryLabel: (key) => _monthShortLabel(key.month),
-      secondaryLabel: (key) => key.day.toString().padLeft(2, '0'),
-      maxPoints: 8,
+      buckets,
+      primaryLabel: (key) => key.day.toString().padLeft(2, '0'),
+      secondaryLabel: (key) => _monthShortLabel(key.month),
     );
   }
 
@@ -203,12 +212,13 @@ class _FuelTrendChartCardState extends State<FuelTrendChartCard> {
       filtered,
       (date) => DateTime(date.year, date.month),
     );
+    final buckets = _generateMonthlyBuckets(latest, 12);
 
-    return _mapCollapsedToPoints(
+    return _mapBuckets(
       collapsed,
+      buckets,
       primaryLabel: (key) => _monthShortLabel(key.month),
       secondaryLabel: (key) => key.year.toString(),
-      maxPoints: 12,
     );
   }
 
@@ -231,7 +241,6 @@ class _FuelTrendChartCardState extends State<FuelTrendChartCard> {
         collapsed,
         primaryLabel: (key) => _monthShortLabel(key.month),
         secondaryLabel: (key) => key.year.toString(),
-        maxPoints: 12,
       );
     }
 
@@ -241,7 +250,6 @@ class _FuelTrendChartCardState extends State<FuelTrendChartCard> {
       collapsed,
       primaryLabel: (key) => key.year.toString(),
       secondaryLabel: (_) => '',
-      maxPoints: 12,
     );
   }
 
@@ -277,18 +285,13 @@ class _FuelTrendChartCardState extends State<FuelTrendChartCard> {
     List<_CollapsedEntry> entries, {
     required String Function(DateTime) primaryLabel,
     String Function(DateTime)? secondaryLabel,
-    int? maxPoints,
   }) {
     if (entries.isEmpty) {
       return const <_TrendPoint>[];
     }
 
-    final effectiveEntries = maxPoints != null
-        ? _limitEntries(entries, maxPoints)
-        : entries;
-
     return [
-      for (final item in effectiveEntries)
+      for (final item in entries)
         _TrendPoint(
           weekday: primaryLabel(item.key),
           dayNumber: secondaryLabel?.call(item.key) ?? '',
@@ -297,43 +300,43 @@ class _FuelTrendChartCardState extends State<FuelTrendChartCard> {
     ];
   }
 
-  List<_CollapsedEntry> _limitEntries(
+  List<_TrendPoint> _mapBuckets(
     List<_CollapsedEntry> entries,
-    int maxPoints,
-  ) {
-    if (entries.length <= maxPoints) {
-      return entries;
-    }
-    if (maxPoints <= 1) {
-      return [entries.last];
+    List<DateTime> buckets, {
+    required String Function(DateTime) primaryLabel,
+    String Function(DateTime)? secondaryLabel,
+  }) {
+    if (entries.isEmpty || buckets.isEmpty) {
+      return const <_TrendPoint>[];
     }
 
-    final limited = <_CollapsedEntry>[];
-    final step = (entries.length - 1) / (maxPoints - 1);
+    final sortedEntries = [...entries]..sort((a, b) => a.key.compareTo(b.key));
+    var entryIndex = 0;
+    var lastKnown = sortedEntries.first;
 
-    for (var index = 0; index < maxPoints; index++) {
-      final position = (index * step).round();
-      final boundedIndex = position < entries.length
-          ? position
-          : entries.length - 1;
-      final entry = entries[boundedIndex];
-      if (limited.isEmpty || limited.last.key != entry.key) {
-        limited.add(entry);
+    final result = <_TrendPoint>[];
+
+    for (final bucket in buckets) {
+      while (entryIndex < sortedEntries.length &&
+          !sortedEntries[entryIndex].key.isAfter(bucket)) {
+        lastKnown = sortedEntries[entryIndex];
+        entryIndex++;
       }
+
+      final entry = bucket.isBefore(sortedEntries.first.key)
+          ? sortedEntries.first
+          : lastKnown;
+
+      result.add(
+        _TrendPoint(
+          weekday: primaryLabel(bucket),
+          dayNumber: secondaryLabel?.call(bucket) ?? '',
+          value: entry.entry.volumeLiters,
+        ),
+      );
     }
 
-    if (limited.last.key != entries.last.key) {
-      limited.add(entries.last);
-    }
-
-    final deduplicated = <_CollapsedEntry>[];
-    for (final entry in limited) {
-      if (deduplicated.isEmpty || deduplicated.last.key != entry.key) {
-        deduplicated.add(entry);
-      }
-    }
-
-    return deduplicated;
+    return result;
   }
 
   String _weekdayLabel(int weekday) {
@@ -367,10 +370,43 @@ class _FuelTrendChartCardState extends State<FuelTrendChartCard> {
     return labels[index];
   }
 
-  DateTime _startOfWeek(DateTime date) {
-    final midnight = DateTime(date.year, date.month, date.day);
-    final difference = date.weekday - DateTime.monday;
-    return midnight.subtract(Duration(days: difference));
+  List<DateTime> _generateHourlyBuckets(DateTime latest, int hours) {
+    if (hours <= 0) {
+      return const <DateTime>[];
+    }
+    final aligned = DateTime(
+      latest.year,
+      latest.month,
+      latest.day,
+      latest.hour,
+    );
+    final start = aligned.subtract(Duration(hours: hours - 1));
+    return List.generate(hours, (index) => start.add(Duration(hours: index)));
+  }
+
+  List<DateTime> _generateDailyBuckets(DateTime latest, int days) {
+    if (days <= 0) {
+      return const <DateTime>[];
+    }
+    final aligned = DateTime(latest.year, latest.month, latest.day);
+    final start = aligned.subtract(Duration(days: days - 1));
+    return List.generate(days, (index) => start.add(Duration(days: index)));
+  }
+
+  List<DateTime> _generateMonthlyBuckets(DateTime latest, int months) {
+    if (months <= 0) {
+      return const <DateTime>[];
+    }
+    final aligned = DateTime(latest.year, latest.month);
+    final start = _shiftMonth(aligned, -(months - 1));
+    return List.generate(months, (index) => _shiftMonth(start, index));
+  }
+
+  DateTime _shiftMonth(DateTime date, int offset) {
+    final totalMonths = (date.year * 12 + (date.month - 1)) + offset;
+    final year = totalMonths ~/ 12;
+    final month = totalMonths % 12 + 1;
+    return DateTime(year, month);
   }
 }
 
@@ -510,7 +546,7 @@ class _FuelTrendPainter extends CustomPainter {
         axisPaint,
       );
 
-      final labelText = '${(stepValue * i / 1000).round()}k';
+      final labelText = _formatYAxisLabel(stepValue * i);
       final labelPainter = TextPainter(
         text: TextSpan(
           text: labelText,
@@ -588,6 +624,14 @@ class _FuelTrendPainter extends CustomPainter {
   double _valueToY(Rect chartRect, double value) {
     final normalized = (value / maxValue).clamp(0.0, 1.0);
     return chartRect.bottom - normalized * chartRect.height;
+  }
+
+  String _formatYAxisLabel(double value) {
+    if (value >= 1000) {
+      final kiloLiters = value / 1000;
+      return '${formatNumber(kiloLiters, decimals: 1)} kL';
+    }
+    return '${formatNumber(value, decimals: 0)} L';
   }
 
   @override

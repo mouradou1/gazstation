@@ -649,10 +649,6 @@ class RemoteGasStationRepository implements GasStationRepository {
     TankDto tank,
     List<PumpTransactionDto> transactions,
   ) {
-    if (movements.isEmpty && transactions.isEmpty) {
-      return const <TankLogEntry>[];
-    }
-
     final sortedMovements = [...movements]
       ..sort((a, b) {
         final aDate = a.modifiedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
@@ -683,23 +679,45 @@ class RemoteGasStationRepository implements GasStationRepository {
           ),
         );
       }
+      entries.sort((a, b) => a.dateTime.compareTo(b.dateTime));
       return entries;
     }
 
+    // Aucun mouvement disponible : on retourne une ligne plate avec le volume courant
+    final now = DateTime.now();
+    final baseVolume = tank.currentVolume ?? 0;
+    final baseHeight = tank.currentHeight ?? 0;
     final fallbackTransactions = [...transactions]
       ..removeWhere((tx) => tx.dateTime == null)
-      ..sort((a, b) => b.dateTime!.compareTo(a.dateTime!));
+      ..sort((a, b) => a.dateTime!.compareTo(b.dateTime!));
 
-    return fallbackTransactions
-        .map(
-          (tx) => TankLogEntry(
-            dateTime: tx.dateTime!,
-            volumeLiters: tx.volume ?? 0,
-            heightCm: tank.currentHeight ?? 0,
-            variationPercent: tx.volume ?? 0,
-          ),
-        )
-        .toList();
+    if (fallbackTransactions.isNotEmpty) {
+      return fallbackTransactions
+          .map(
+            (tx) => TankLogEntry(
+              dateTime: tx.dateTime!,
+              volumeLiters: tx.totalVolume ?? tx.volume ?? baseVolume,
+              heightCm: tank.currentHeight ?? 0,
+              variationPercent: tx.volume ?? 0,
+            ),
+          )
+          .toList();
+    }
+
+    return [
+      TankLogEntry(
+        dateTime: now.subtract(const Duration(days: 1)),
+        volumeLiters: baseVolume,
+        heightCm: baseHeight,
+        variationPercent: 0,
+      ),
+      TankLogEntry(
+        dateTime: now,
+        volumeLiters: baseVolume,
+        heightCm: baseHeight,
+        variationPercent: 0,
+      ),
+    ];
   }
 
   DateTime _resolveLastSync(

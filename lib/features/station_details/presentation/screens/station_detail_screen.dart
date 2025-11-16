@@ -103,11 +103,15 @@ class _StationDetailScreenState extends ConsumerState<StationDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final stationAsync = ref.watch(stationDetailsProvider(widget.stationId));
-    final effectiveStation = stationAsync.maybeWhen(
+    final stationToDisplay = stationAsync.maybeWhen(
       data: (station) => station,
       orElse: () => _latestStation,
     );
-    final appBarTitle = effectiveStation?.name ?? 'Détails station';
+    final appBarTitle = stationToDisplay?.name ?? 'Détails station';
+    final lastError = stationAsync.maybeWhen(
+      error: (error, _) => error,
+      orElse: () => null,
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -160,55 +164,29 @@ class _StationDetailScreenState extends ConsumerState<StationDetailScreen> {
         ],
       ),
       body: SafeArea(
-        child: stationAsync.when(
-          data: (station) {
-            if (station == null) {
-              return const StationCenteredMessage(
-                title: 'Station introuvable',
-                message: 'Cette station n’est plus disponible.',
-              );
-            }
-            return StationDetailContent(
-              station: station,
-              selectedTankId: _selectedTankId,
-              lastRefreshAt: _lastRefreshAt,
-              isRefreshing: _isRefreshing,
-              onSelectTank: (value) => setState(() => _selectedTankId = value),
-            );
-          },
-          loading: () {
-            final station = effectiveStation;
-            if (station != null) {
-              return StationDetailContent(
-                station: station,
+        child: stationToDisplay == null
+            ? stationAsync.when(
+                data: (_) => const StationCenteredMessage(
+                  title: 'Station introuvable',
+                  message: 'Cette station n’est plus disponible.',
+                ),
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (error, _) => StationCenteredMessage(
+                  title: 'Erreur',
+                  message: 'Impossible de charger la station.\n$error',
+                ),
+              )
+            : StationDetailContent(
+                station: stationToDisplay,
                 selectedTankId: _selectedTankId,
                 lastRefreshAt: _lastRefreshAt,
                 isRefreshing: _isRefreshing,
+                errorMessage: lastError != null
+                    ? 'Dernière tentative échouée.\n$lastError'
+                    : null,
                 onSelectTank: (value) =>
                     setState(() => _selectedTankId = value),
-              );
-            }
-            return const Center(child: CircularProgressIndicator());
-          },
-          error: (error, _) {
-            final station = _latestStation;
-            if (station != null) {
-              return StationDetailContent(
-                station: station,
-                selectedTankId: _selectedTankId,
-                lastRefreshAt: _lastRefreshAt,
-                isRefreshing: false,
-                onSelectTank: (value) =>
-                    setState(() => _selectedTankId = value),
-                errorMessage: 'Dernière tentative échouée.\n$error',
-              );
-            }
-            return StationCenteredMessage(
-              title: 'Erreur',
-              message: 'Impossible de charger la station.\n$error',
-            );
-          },
-        ),
+              ),
       ),
     );
   }
