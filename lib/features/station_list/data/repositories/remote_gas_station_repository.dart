@@ -162,10 +162,11 @@ class RemoteGasStationRepository implements GasStationRepository {
     }
 
     final pumpEntities = pumps.map((pumpDto) {
+      final pumpKey = pumpDto.localId ?? pumpDto.id;
       return Pump(
         id: pumpDto.id,
         label: pumpDto.label,
-        nozzles: nozzlesByPumpId[pumpDto.id] ?? const <Nozzle>[],
+        nozzles: nozzlesByPumpId[pumpKey] ?? const <Nozzle>[],
       );
     }).toList();
 
@@ -215,15 +216,10 @@ class RemoteGasStationRepository implements GasStationRepository {
 
     for (final tank in tanks) {
       final tankId = tank.localId ?? tank.id;
-      if (!fuelTypeMap.containsKey(tankId)) {
-        if (tank.label.toUpperCase().contains("ESS")) {
-          fuelTypeMap[tankId] = "Petrol";
-        } else if (tank.label.toUpperCase().contains("GPL")) {
-          fuelTypeMap[tankId] = "GPL";
-        } else {
-          fuelTypeMap[tankId] = "Diesel";
-        }
-      }
+      fuelTypeMap.putIfAbsent(
+        tankId,
+        () => _inferFuelTypeFromLabel(tank.label),
+      );
     }
 
     final summaryData = <String, _FuelSummaryAggregator>{};
@@ -271,15 +267,8 @@ class RemoteGasStationRepository implements GasStationRepository {
       final fuelName = entry.key;
       final data = entry.value;
 
-      String mapFuelNameToUI(String apiName) {
-        if (apiName.toLowerCase().contains('diesel')) return 'DZL';
-        if (apiName.toLowerCase().contains('petrol')) return 'ESS';
-        if (apiName.toLowerCase().contains('gpl')) return 'GPL';
-        return apiName.toUpperCase();
-      }
-
       return FuelSummary(
-        fuelTypeName: mapFuelNameToUI(fuelName),
+        fuelTypeName: _mapFuelNameToUI(fuelName),
         totalCapacityLiters: data.totalCapacity,
         realVolumeLiters: data.realVolume,
         theoreticalVolumeLiters: data.theoreticalVolume,
@@ -465,6 +454,51 @@ class RemoteGasStationRepository implements GasStationRepository {
               keys.contains(movement.tankLocalId!),
         )
         .toList();
+  }
+
+  String _inferFuelTypeFromLabel(String label) {
+    final upper = label.toUpperCase();
+    if (upper.contains('GPL')) {
+      return 'GPL';
+    }
+
+    if (upper.contains('DZ') ||
+        upper.contains('GASOIL') ||
+        upper.contains('GAZOIL') ||
+        upper.contains('DIESEL') ||
+        upper.contains('GAZOLE') ||
+        upper.contains('GO ')) {
+      return 'DZL';
+    }
+
+    if (upper.contains('ESS') ||
+        upper.contains('SP') ||
+        upper.contains('SUPER') ||
+        upper.contains('PETROL')) {
+      return 'ESS';
+    }
+
+    return 'AUTRE';
+  }
+
+  String _mapFuelNameToUI(String apiName) {
+    final lower = apiName.toLowerCase();
+    if (lower.contains('dzl') ||
+        lower.contains('diesel') ||
+        lower.contains('gasoil') ||
+        lower.contains('gazoil')) {
+      return 'DZL';
+    }
+    if (lower.contains('ess') ||
+        lower.contains('petrol') ||
+        lower.contains('gasoline') ||
+        lower.contains('sp')) {
+      return 'ESS';
+    }
+    if (lower.contains('gpl')) {
+      return 'GPL';
+    }
+    return apiName.toUpperCase();
   }
 
   String _contextKey(String context) {

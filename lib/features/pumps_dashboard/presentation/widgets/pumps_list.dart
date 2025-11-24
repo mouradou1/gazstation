@@ -13,7 +13,12 @@ class PumpsList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final nozzleFuelTypes = <int, int>{};
+    final pumpFuelTypes = <int, int>{};
     for (final pump in pumps) {
+      final dominantFuelType = pump.nozzles.isNotEmpty
+          ? pump.nozzles.first.fuelType
+          : 0;
+      pumpFuelTypes[pump.id] = dominantFuelType;
       for (final nozzle in pump.nozzles) {
         nozzleFuelTypes[nozzle.id] = nozzle.fuelType;
       }
@@ -28,11 +33,12 @@ class PumpsList extends StatelessWidget {
 
     for (final transaction in transactions) {
       final nozzleId = transaction.nozzleId;
-      if (nozzleId == null) {
-        continue;
+      int? fuelType;
+      if (nozzleId != null) {
+        fuelType = nozzleFuelTypes[nozzleId];
+      } else if (transaction.pumpId != null) {
+        fuelType = pumpFuelTypes[transaction.pumpId!];
       }
-
-      final fuelType = nozzleFuelTypes[nozzleId];
       if (fuelType == null) {
         continue;
       }

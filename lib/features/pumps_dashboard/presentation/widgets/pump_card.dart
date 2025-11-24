@@ -81,17 +81,22 @@ class PumpCard extends StatelessWidget {
           // Affiche chaque pistolet de la pompe
           ...pump.nozzles.map((nozzle) {
             final fuelInfo = _getFuelInfo(nozzle.fuelType);
-            final nozzleAmount = transactions
-                .where((transaction) => transaction.nozzleId == nozzle.id)
-                .fold<double>(
-                  0,
-                  (sum, transaction) => sum + (transaction.amount ?? 0),
-                );
+            final nozzleTransactions = transactions.where(
+              (transaction) => transaction.nozzleId == nozzle.id,
+            );
+            final nozzleAmount = nozzleTransactions.fold<double>(
+              0,
+              (sum, transaction) => sum + (transaction.amount ?? 0),
+            );
+            final nozzleVolume = nozzleTransactions.fold<double>(
+              0,
+              (sum, transaction) => sum + (transaction.volume ?? 0),
+            );
             return _NozzleRow(
               fuelName: fuelInfo.name,
               fuelColor: fuelInfo.color,
               voletLabel: nozzle.label,
-              volume: nozzle.volume,
+              volume: nozzleVolume,
               amount: nozzleAmount,
             );
           }),

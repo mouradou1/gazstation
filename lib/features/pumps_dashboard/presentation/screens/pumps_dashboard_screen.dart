@@ -8,7 +8,7 @@ import 'package:gazstation/features/station_list/data/models/remote_gas_station_
 import 'package:gazstation/features/station_list/presentation/providers/gas_stations_providers.dart';
 import 'package:gazstation/features/station_details/presentation/widgets/station_centered_message.dart';
 
-enum PumpDateFilter { day, week, month, year }
+enum PumpDateFilter { day, week, month, year, all }
 
 extension PumpDateFilterX on PumpDateFilter {
   String get label {
@@ -21,6 +21,8 @@ extension PumpDateFilterX on PumpDateFilter {
         return 'Mois';
       case PumpDateFilter.year:
         return 'Année';
+      case PumpDateFilter.all:
+        return 'Tout';
     }
   }
 
@@ -34,6 +36,8 @@ extension PumpDateFilterX on PumpDateFilter {
         return const Duration(days: 30);
       case PumpDateFilter.year:
         return const Duration(days: 365);
+      case PumpDateFilter.all:
+        return const Duration(days: 3650);
     }
   }
 }
@@ -51,7 +55,7 @@ class PumpsDashboardScreen extends ConsumerStatefulWidget {
 class _PumpsDashboardScreenState extends ConsumerState<PumpsDashboardScreen> {
   final _searchController = TextEditingController();
   String _query = '';
-  PumpDateFilter _selectedFilter = PumpDateFilter.day;
+  PumpDateFilter _selectedFilter = PumpDateFilter.all;
 
   @override
   void dispose() {
@@ -184,17 +188,22 @@ class _PumpsDashboardScreenState extends ConsumerState<PumpsDashboardScreen> {
         .expand((pump) => pump.nozzles)
         .map((nozzle) => nozzle.id)
         .toSet();
+    final allowedPumpIds = filteredPumps.map((pump) => pump.id).toSet();
 
-    if (allowedNozzleIds.isEmpty) {
-      return const <PumpTransactionDto>[];
+    if (allowedNozzleIds.isEmpty && allowedPumpIds.isEmpty) {
+      return transactions;
     }
 
     return transactions.where((transaction) {
       final nozzleId = transaction.nozzleId;
-      if (nozzleId == null) {
-        return false;
+      final pumpId = transaction.pumpId;
+      if (nozzleId != null && allowedNozzleIds.contains(nozzleId)) {
+        return true;
       }
-      return allowedNozzleIds.contains(nozzleId);
+      if (pumpId != null && allowedPumpIds.contains(pumpId)) {
+        return true;
+      }
+      return false;
     }).toList();
   }
 }
