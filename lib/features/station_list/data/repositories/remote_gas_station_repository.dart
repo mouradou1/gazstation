@@ -15,8 +15,8 @@ import '../../domain/repositories/gas_station_repository.dart';
 import '../models/remote_gas_station_models.dart';
 
 typedef PumpsWithTransactions = ({
-  List<Pump> pumps,
-  List<PumpTransactionDto> transactions,
+List<Pump> pumps,
+List<PumpTransactionDto> transactions,
 });
 
 class RemoteGasStationRepository implements GasStationRepository {
@@ -33,9 +33,9 @@ class RemoteGasStationRepository implements GasStationRepository {
   final Duration tankMovementsCacheDuration;
   final Set<String> _silencedErrorContexts = <String>{};
   final Map<int, _TankMovementsCacheEntry> _tankMovementsCache =
-      <int, _TankMovementsCacheEntry>{};
+  <int, _TankMovementsCacheEntry>{};
   final Map<int, Future<List<TankMovementDto>>> _pendingTankMovements =
-      <int, Future<List<TankMovementDto>>>{};
+  <int, Future<List<TankMovementDto>>>{};
 
   String get _stationsPath => '$basePath/stations';
   String get _tanksPath => '$basePath/cuves';
@@ -43,6 +43,10 @@ class RemoteGasStationRepository implements GasStationRepository {
   String get _pumpsPath => '$basePath/pump2';
   String get _voletsPath => '$basePath/volets';
   String get _pumpTransactionsPath => '$basePath/pump';
+
+  // Nouveaux endpoints pour le calcul théorique
+  String get _purchaseSumPath => '$basePath/ligneAchat/somme';
+  String get _salesSumPath => '$basePath/pump/volume';
 
   List<dynamic> _asList(dynamic data) => data is List ? data : const [];
 
@@ -75,9 +79,9 @@ class RemoteGasStationRepository implements GasStationRepository {
 
   @override
   Future<GasStation?> fetchStationDetails(
-    String id, {
-    bool forceRefresh = false,
-  }) async {
+      String id, {
+        bool forceRefresh = false,
+      }) async {
     final stationId = int.tryParse(id);
     if (stationId == null) {
       developer.log(
@@ -104,10 +108,10 @@ class RemoteGasStationRepository implements GasStationRepository {
 
   @override
   Future<FuelTank?> fetchTankById(
-    String stationId,
-    String tankId, {
-    bool forceRefresh = false,
-  }) async {
+      String stationId,
+      String tankId, {
+        bool forceRefresh = false,
+      }) async {
     final station = await fetchStationDetails(
       stationId,
       forceRefresh: forceRefresh,
@@ -125,14 +129,14 @@ class RemoteGasStationRepository implements GasStationRepository {
 
   @override
   Future<PumpsWithTransactions> fetchPumps(
-    String stationId, {
-    bool forceRefresh = false,
-  }) async {
+      String stationId, {
+        bool forceRefresh = false,
+      }) async {
     final stationIdInt = int.tryParse(stationId);
     if (stationIdInt == null) {
       return (
-        pumps: const <Pump>[],
-        transactions: const <PumpTransactionDto>[],
+      pumps: const <Pump>[],
+      transactions: const <PumpTransactionDto>[],
       );
     }
 
@@ -173,108 +177,164 @@ class RemoteGasStationRepository implements GasStationRepository {
     return (pumps: pumpEntities, transactions: transactions);
   }
 
+  // --- MODIFICATION MAJEURE ICI POUR LE RÉSUMÉ CARBURANT ---
   @override
   Future<List<FuelSummary>> fetchFuelSummary(
-    String stationId, {
-    bool forceRefresh = false,
-  }) async {
+      String stationId, {
+        bool forceRefresh = false,
+      }) async {
     final stationIdInt = int.tryParse(stationId);
     if (stationIdInt == null) {
       return const <FuelSummary>[];
     }
 
+    // 1. Récupérer les cuves et les mouvements (pour le stock initial)
     final tanksFuture = _fetchTanks(stationIdInt);
     final movementsFuture = _getTankMovementsByStation(
-      stationIdInt,
-      forceRefresh: forceRefresh,
-    );
-    final transactionsFuture = _fetchPumpTransactions(stationIdInt);
+        stationIdInt, forceRefresh: forceRefresh);
 
-    final results = await Future.wait([
-      tanksFuture,
-      movementsFuture,
-      transactionsFuture,
-    ]);
-
+    final results = await Future.wait([tanksFuture, movementsFuture]);
     final tanks = results[0] as List<TankDto>;
     final movements = results[1] as List<TankMovementDto>;
-    final transactions = results[2] as List<PumpTransactionDto>;
 
-    if (tanks.isEmpty) {
-      return const <FuelSummary>[];
-    }
+    // 2. Définir les types stricts demandés (1=DZL, 2=ESS, 3=GPL)
+    // Cela empêche l'apparition de "Autre" et fixe l'ordre.
+    final fuelTypes = [
+      (typeId: 1, name: 'DZL'),
+      (typeId: 2, name: 'ESS'),
+      (typeId: 3, name: 'GPL'),
+    ];
 
-    final fuelTypeMap = <int, String>{};
-    for (final transaction in transactions) {
-      final tankId = transaction.tankId;
-      final fuelName = transaction.fuelGradeName;
+    final summaries = <FuelSummary>[];
 
-      if (tankId != null && fuelName != null && fuelName.isNotEmpty) {
-        fuelTypeMap.putIfAbsent(tankId, () => fuelName);
+    for (final fuelType in fuelTypes) {
+      final typeId = fuelType.typeId;
+      final typeName = fuelType.name;
+
+      // A. Calculer le Réel (Somme des cuves correspondantes)
+      double totalRealVolume = 0.0;
+      double totalCapacity = 0.0;
+      double startVolumeForTheoretical = 0.0;
+
+      // Filtrer les cuves qui correspondent à ce type
+      final matchingTanks = tanks.where((t) => _isTankOfType(t, typeId)).toList();
+
+      for (final tank in matchingTanks) {
+        totalRealVolume += tank.currentVolume ?? 0;
+        totalCapacity += tank.capacityLiters ?? 0;
+
+        // Trouver le volume de départ pour cette cuve (via les logs)
+        final tankMovements = _filterMovementsForTank(movements, tank);
+        // On simule une liste vide de transactions pour juste avoir les logs
+        final logs = _buildLogEntries(tankMovements, tank, []);
+        if (logs.isNotEmpty) {
+          // Le dernier élément de la liste triée chronologiquement est le plus ancien ou le plus récent selon le tri
+          // _buildLogEntries retourne une liste triée par date (plus ancien au début normalement, vérifions la méthode)
+          // Dans _buildLogEntries: entries.sort((a, b) => a.dateTime.compareTo(b.dateTime));
+          // Donc logs.first est le plus ancien (Stock Initial de la période)
+          startVolumeForTheoretical += logs.first.volumeLiters;
+        } else {
+          startVolumeForTheoretical += tank.currentVolume ?? 0;
+        }
       }
+
+      // B. Récupérer les Achats via API (ligneAchat/somme)
+      final purchases = await _fetchTotalPurchases(stationIdInt, typeId);
+
+      // C. Récupérer les Ventes via API (pump/volume)
+      final sales = await _fetchTotalSales(stationIdInt, typeId);
+
+      // D. Calculer le Théorique
+      // Formule: Stock Initial + Achats - Ventes
+      final theoreticalVolume = (startVolumeForTheoretical + purchases - sales)
+          .clamp(0.0, double.infinity);
+
+      // E. Créer le résumé seulement si on a de la capacité ou des données
+      // (Ou on force l'affichage même si vide, selon votre préférence. Ici on affiche tout).
+      summaries.add(FuelSummary(
+        fuelTypeName: typeName,
+        totalCapacityLiters: totalCapacity,
+        realVolumeLiters: totalRealVolume,
+        theoreticalVolumeLiters: theoreticalVolume,
+      ));
     }
 
-    for (final tank in tanks) {
-      final tankId = tank.localId ?? tank.id;
-      fuelTypeMap.putIfAbsent(
-        tankId,
-        () => _inferFuelTypeFromLabel(tank.label),
-      );
-    }
-
-    final summaryData = <String, _FuelSummaryAggregator>{};
-
-    for (final tank in tanks) {
-      final tankId = tank.localId ?? tank.id;
-      final fuelTypeName = fuelTypeMap[tankId] ?? 'Inconnu';
-
-      final tankMovements = _filterMovementsForTank(movements, tank);
-      final tankTransactions = transactions
-          .where((t) => t.tankId == tankId)
-          .toList();
-
-      final logEntries = _buildLogEntries(
-        tankMovements,
-        tank,
-        tankTransactions,
-      );
-
-      final totalSales = tankTransactions.fold<double>(
-        0,
-        (sum, tx) => sum + (tx.volume ?? 0),
-      );
-      final totalPurchases = logEntries
-          .where((entry) => entry.variationPercent > 0)
-          .fold<double>(0, (sum, entry) => sum + entry.variationPercent);
-
-      final startVolume = logEntries.isNotEmpty
-          ? logEntries.last.volumeLiters
-          : (tank.currentVolume ?? 0);
-
-      final theoreticalVolume = (startVolume + totalPurchases - totalSales)
-          .clamp(0, double.infinity);
-
-      final aggregator = summaryData.putIfAbsent(
-        fuelTypeName,
-        () => _FuelSummaryAggregator(),
-      );
-      aggregator.totalCapacity += tank.capacityLiters ?? 0;
-      aggregator.realVolume += tank.currentVolume ?? 0;
-      aggregator.theoreticalVolume += theoreticalVolume;
-    }
-
-    return summaryData.entries.map((entry) {
-      final fuelName = entry.key;
-      final data = entry.value;
-
-      return FuelSummary(
-        fuelTypeName: _mapFuelNameToUI(fuelName),
-        totalCapacityLiters: data.totalCapacity,
-        realVolumeLiters: data.realVolume,
-        theoreticalVolumeLiters: data.theoreticalVolume,
-      );
-    }).toList();
+    return summaries;
   }
+
+  // --- NOUVEAUX HELPERS POUR LES API ---
+
+  // Détermine si une cuve appartient au type 1 (DZL), 2 (ESS) ou 3 (GPL)
+  bool _isTankOfType(TankDto tank, int targetTypeId) {
+    final label = (tank.label).toUpperCase();
+
+    // Logique de mappage basée sur vos indications
+    // Type 1 = DZL
+    if (targetTypeId == 1) {
+      return label.contains('DZ') ||
+          label.contains('GASOIL') ||
+          label.contains('GAZOIL') ||
+          label.contains('DIESEL') ||
+          label.contains('GO ');
+    }
+    // Type 2 = ESS
+    if (targetTypeId == 2) {
+      return label.contains('ESS') ||
+          label.contains('SP') ||
+          label.contains('SUPER') ||
+          label.contains('SANS PLOMB');
+    }
+    // Type 3 = GPL
+    if (targetTypeId == 3) {
+      return label.contains('GPL') || label.contains('SIRGHAZ');
+    }
+
+    return false;
+  }
+
+  Future<double> _fetchTotalPurchases(int stationId, int type) async {
+    try {
+      // API: /api/ligneAchat/somme
+      final response = await apiClient.post(
+        _purchaseSumPath,
+        body: {'StationID': stationId, 'type': type},
+      );
+
+      // Réponse attendue: { "la_somme_qte": 10000 }
+      if (response is Map<String, dynamic>) {
+        final val = response['la_somme_qte'];
+        if (val is num) return val.toDouble();
+        if (val is String) return double.tryParse(val) ?? 0.0;
+      }
+      return 0.0;
+    } catch (e) {
+      developer.log('Erreur fetchTotalPurchases: $e');
+      return 0.0;
+    }
+  }
+
+  Future<double> _fetchTotalSales(int stationId, int type) async {
+    try {
+      // API: /api/pump/volume
+      final response = await apiClient.post(
+        _salesSumPath,
+        body: {'StationID': stationId, 'type': type},
+      );
+
+      // Réponse attendue: { ..., "la_somme_Volume": 69.99 }
+      if (response is Map<String, dynamic>) {
+        final val = response['la_somme_Volume'];
+        if (val is num) return val.toDouble();
+        if (val is String) return double.tryParse(val) ?? 0.0;
+      }
+      return 0.0;
+    } catch (e) {
+      developer.log('Erreur fetchTotalSales: $e');
+      return 0.0;
+    }
+  }
+
+  // ------------------------------------
 
   Future<List<PumpDto>> _fetchPumps(int stationId) async {
     final response = await apiClient.post(
@@ -308,21 +368,21 @@ class RemoteGasStationRepository implements GasStationRepository {
   }
 
   Future<GasStation> _mapStationAsync(
-    StationDto station, {
-    bool forceRefresh = false,
-  }) async {
+      StationDto station, {
+        bool forceRefresh = false,
+      }) async {
     final tanksFuture = _guard<List<TankDto>>(
-      () => _fetchTanks(station.id),
+          () => _fetchTanks(station.id),
       const <TankDto>[],
       context: 'stationTanks(${station.id})',
     );
     final movementsFuture = _guard<List<TankMovementDto>>(
-      () => _getTankMovementsByStation(station.id, forceRefresh: forceRefresh),
+          () => _getTankMovementsByStation(station.id, forceRefresh: forceRefresh),
       const <TankMovementDto>[],
       context: 'tankMovements(${station.id})',
     );
     final transactionsFuture = _guard<List<PumpTransactionDto>>(
-      () => _fetchPumpTransactions(station.id),
+          () => _fetchPumpTransactions(station.id),
       const <PumpTransactionDto>[],
       context: 'pumpTransactions(${station.id})',
     );
@@ -373,9 +433,9 @@ class RemoteGasStationRepository implements GasStationRepository {
   }
 
   Future<List<TankMovementDto>> _getTankMovementsByStation(
-    int stationId, {
-    bool forceRefresh = false,
-  }) async {
+      int stationId, {
+        bool forceRefresh = false,
+      }) async {
     if (forceRefresh) {
       _invalidateTankMovementsCache(stationId);
     }
@@ -417,11 +477,11 @@ class RemoteGasStationRepository implements GasStationRepository {
         .whereType<Map<String, dynamic>>()
         .map(TankMovementDto.fromJson)
         .where((movement) {
-          if (movement.stationId == null) {
-            return true;
-          }
-          return movement.stationId == stationId;
-        })
+      if (movement.stationId == null) {
+        return true;
+      }
+      return movement.stationId == stationId;
+    })
         .toList();
 
     return List.unmodifiable(movements);
@@ -438,9 +498,9 @@ class RemoteGasStationRepository implements GasStationRepository {
   }
 
   List<TankMovementDto> _filterMovementsForTank(
-    List<TankMovementDto> movements,
-    TankDto tank,
-  ) {
+      List<TankMovementDto> movements,
+      TankDto tank,
+      ) {
     if (movements.isEmpty) {
       return const <TankMovementDto>[];
     }
@@ -450,55 +510,10 @@ class RemoteGasStationRepository implements GasStationRepository {
     return movements
         .where(
           (movement) =>
-              movement.tankLocalId != null &&
-              keys.contains(movement.tankLocalId!),
-        )
+      movement.tankLocalId != null &&
+          keys.contains(movement.tankLocalId!),
+    )
         .toList();
-  }
-
-  String _inferFuelTypeFromLabel(String label) {
-    final upper = label.toUpperCase();
-    if (upper.contains('GPL')) {
-      return 'GPL';
-    }
-
-    if (upper.contains('DZ') ||
-        upper.contains('GASOIL') ||
-        upper.contains('GAZOIL') ||
-        upper.contains('DIESEL') ||
-        upper.contains('GAZOLE') ||
-        upper.contains('GO ')) {
-      return 'DZL';
-    }
-
-    if (upper.contains('ESS') ||
-        upper.contains('SP') ||
-        upper.contains('SUPER') ||
-        upper.contains('PETROL')) {
-      return 'ESS';
-    }
-
-    return 'AUTRE';
-  }
-
-  String _mapFuelNameToUI(String apiName) {
-    final lower = apiName.toLowerCase();
-    if (lower.contains('dzl') ||
-        lower.contains('diesel') ||
-        lower.contains('gasoil') ||
-        lower.contains('gazoil')) {
-      return 'DZL';
-    }
-    if (lower.contains('ess') ||
-        lower.contains('petrol') ||
-        lower.contains('gasoline') ||
-        lower.contains('sp')) {
-      return 'ESS';
-    }
-    if (lower.contains('gpl')) {
-      return 'GPL';
-    }
-    return apiName.toUpperCase();
   }
 
   String _contextKey(String context) {
@@ -579,11 +594,11 @@ class RemoteGasStationRepository implements GasStationRepository {
       final reason = _apiErrorMessage(error);
       final sanitizedReason = reason.isEmpty ? 'Erreur inconnue' : reason;
       message =
-          'Impossible de récupérer $scope. (${error.statusCode}) $sanitizedReason';
+      'Impossible de récupérer $scope. (${error.statusCode}) $sanitizedReason';
     } else if (error is TimeoutException) {
       title = 'Temps dépassé';
       message =
-          'Le chargement de $scope prend plus de temps que prévu. Veuillez réessayer.';
+      'Le chargement de $scope prend plus de temps que prévu. Veuillez réessayer.';
     } else {
       title = 'Erreur inattendue';
       message = 'Une erreur est survenue lors de la récupération de $scope.';
@@ -593,10 +608,10 @@ class RemoteGasStationRepository implements GasStationRepository {
   }
 
   Future<T> _guard<T>(
-    Future<T> Function() runner,
-    T fallback, {
-    required String context,
-  }) async {
+      Future<T> Function() runner,
+      T fallback, {
+        required String context,
+      }) async {
     final contextKey = _contextKey(context);
     try {
       final result = await runner();
@@ -642,17 +657,17 @@ class RemoteGasStationRepository implements GasStationRepository {
   }
 
   FuelTank _mapTank(
-    TankDto tank,
-    List<TankMovementDto> movements,
-    List<PumpTransactionDto> transactions,
-  ) {
+      TankDto tank,
+      List<TankMovementDto> movements,
+      List<PumpTransactionDto> transactions,
+      ) {
     final capacity = (tank.capacityLiters == null || tank.capacityLiters! <= 0)
         ? (tank.currentVolume ?? 1)
         : tank.capacityLiters!;
     final warningThreshold =
-        (tank.warningThresholdPercent != null &&
-            tank.warningThresholdPercent! > 0 &&
-            tank.warningThresholdPercent! <= 1)
+    (tank.warningThresholdPercent != null &&
+        tank.warningThresholdPercent! > 0 &&
+        tank.warningThresholdPercent! <= 1)
         ? tank.warningThresholdPercent!
         : 0.1;
 
@@ -679,10 +694,10 @@ class RemoteGasStationRepository implements GasStationRepository {
   }
 
   List<TankLogEntry> _buildLogEntries(
-    List<TankMovementDto> movements,
-    TankDto tank,
-    List<PumpTransactionDto> transactions,
-  ) {
+      List<TankMovementDto> movements,
+      TankDto tank,
+      List<PumpTransactionDto> transactions,
+      ) {
     final sortedMovements = [...movements]
       ..sort((a, b) {
         final aDate = a.modifiedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
@@ -729,12 +744,12 @@ class RemoteGasStationRepository implements GasStationRepository {
       return fallbackTransactions
           .map(
             (tx) => TankLogEntry(
-              dateTime: tx.dateTime!,
-              volumeLiters: tx.totalVolume ?? tx.volume ?? baseVolume,
-              heightCm: tank.currentHeight ?? 0,
-              variationPercent: tx.volume ?? 0,
-            ),
-          )
+          dateTime: tx.dateTime!,
+          volumeLiters: tx.totalVolume ?? tx.volume ?? baseVolume,
+          heightCm: tank.currentHeight ?? 0,
+          variationPercent: tx.volume ?? 0,
+        ),
+      )
           .toList();
     }
 
@@ -755,10 +770,10 @@ class RemoteGasStationRepository implements GasStationRepository {
   }
 
   DateTime _resolveLastSync(
-    TankDto tank,
-    List<TankMovementDto> movements,
-    List<TankLogEntry> logs,
-  ) {
+      TankDto tank,
+      List<TankMovementDto> movements,
+      List<TankLogEntry> logs,
+      ) {
     if (tank.lastSync != null) {
       return tank.lastSync!;
     }
@@ -767,11 +782,11 @@ class RemoteGasStationRepository implements GasStationRepository {
         .map((movement) => movement.modifiedAt)
         .whereType<DateTime>()
         .fold<DateTime?>(
-          null,
+      null,
           (previous, current) => previous == null || current.isAfter(previous)
-              ? current
-              : previous,
-        );
+          ? current
+          : previous,
+    );
 
     if (latestMovementDate != null) {
       return latestMovementDate;
@@ -827,10 +842,4 @@ class _TankMovementsCacheEntry {
 
   final DateTime fetchedAt;
   final List<TankMovementDto> movements;
-}
-
-class _FuelSummaryAggregator {
-  double totalCapacity = 0;
-  double realVolume = 0;
-  double theoreticalVolume = 0;
 }
