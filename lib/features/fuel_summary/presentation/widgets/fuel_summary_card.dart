@@ -12,11 +12,11 @@ class FuelSummaryCard extends StatelessWidget {
   Color _getFuelColor(String fuelName) {
     switch (fuelName.toUpperCase()) {
       case 'DZL':
-        return const Color(0xFFF39C12); // Orange
+        return const Color(0xFFF5B51B); // Orange
       case 'ESS':
         return const Color(0xFFE74C3C); // Rouge
       case 'GPL':
-        return const Color(0xFF2ECC71); // Vert
+        return const Color(0xFF4CAF50); // Vert (Changé pour correspondre à votre demande précédente)
       default:
         return Colors.grey;
     }
@@ -26,14 +26,17 @@ class FuelSummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final fuelColor = _getFuelColor(summary.fuelTypeName);
-    final realPercent = (summary.realVolumeLiters / summary.totalCapacityLiters)
-        .clamp(0.0, 1.0);
-    final theoreticalPercent =
-    (summary.theoreticalVolumeLiters / summary.totalCapacityLiters)
-        .clamp(0.0, 1.0);
+
+    // CORRECTION ICI : Vérification de la capacité > 0 pour éviter la division par zéro (Infinity -> 100%)
+    final realPercent = summary.totalCapacityLiters > 0
+        ? (summary.realVolumeLiters / summary.totalCapacityLiters).clamp(0.0, 1.0)
+        : 0.0;
+
+    final theoreticalPercent = summary.totalCapacityLiters > 0
+        ? (summary.theoreticalVolumeLiters / summary.totalCapacityLiters).clamp(0.0, 1.0)
+        : 0.0;
 
     return Container(
-      // Nouveau style : fond blanc, ombre et bordure arrondie
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
@@ -79,7 +82,7 @@ class FuelSummaryCard extends StatelessWidget {
             label: 'Théorique',
             percent: theoreticalPercent,
             volume: summary.theoreticalVolumeLiters,
-            color: AppTheme.navy, // Couleur différente pour distinguer
+            color: AppTheme.navy,
           ),
           const SizedBox(height: 20),
           const Divider(height: 1, color: Color(0xFFE6E8EF)),
@@ -96,7 +99,7 @@ class FuelSummaryCard extends StatelessWidget {
           _InfoRow(
             label: 'Manque',
             value: formatLiters(summary.shortfallLiters),
-            valueColor: const Color(0xFFE74C3C), // Rouge pour le manque
+            valueColor: const Color(0xFFE74C3C),
           ),
         ],
       ),
@@ -139,7 +142,7 @@ class _InfoRow extends StatelessWidget {
   }
 }
 
-// Widget privé pour la nouvelle jauge horizontale
+// Widget privé pour la jauge horizontale
 class _SummaryGauge extends StatelessWidget {
   const _SummaryGauge({
     required this.label,
@@ -156,6 +159,9 @@ class _SummaryGauge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    // Sécurité pour l'affichage du texte (0.0% au lieu de NaN%)
+    final displayPercent = percent.isNaN || percent.isInfinite ? 0.0 : percent;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -168,7 +174,7 @@ class _SummaryGauge extends StatelessWidget {
                   ?.copyWith(fontWeight: FontWeight.w600),
             ),
             Text(
-              '${(percent * 100).toStringAsFixed(1)}%',
+              '${(displayPercent * 100).toStringAsFixed(1)}%',
               style: theme.textTheme.bodyMedium
                   ?.copyWith(fontWeight: FontWeight.bold, color: color),
             ),
@@ -178,7 +184,7 @@ class _SummaryGauge extends StatelessWidget {
         ClipRRect(
           borderRadius: BorderRadius.circular(8),
           child: LinearProgressIndicator(
-            value: percent,
+            value: displayPercent,
             minHeight: 12,
             backgroundColor: const Color(0xFFF1F2F7),
             valueColor: AlwaysStoppedAnimation<Color>(color),

@@ -188,17 +188,10 @@ class RemoteGasStationRepository implements GasStationRepository {
       return const <FuelSummary>[];
     }
 
-    // 1. Récupérer les cuves et les mouvements (pour le stock initial)
-    final tanksFuture = _fetchTanks(stationIdInt);
-    final movementsFuture = _getTankMovementsByStation(
-        stationIdInt, forceRefresh: forceRefresh);
-
-    final results = await Future.wait([tanksFuture, movementsFuture]);
-    final tanks = results[0] as List<TankDto>;
-    final movements = results[1] as List<TankMovementDto>;
+    // 1. Récupérer uniquement les cuves (plus besoin des mouvements pour le stock initial)
+    final tanks = await _fetchTanks(stationIdInt);
 
     // 2. Définir les types stricts demandés (1=DZL, 2=ESS, 3=GPL)
-    // Cela empêche l'apparition de "Autre" et fixe l'ordre.
     final fuelTypes = [
       (typeId: 1, name: 'DZL'),
       (typeId: 2, name: 'ESS'),
@@ -214,7 +207,6 @@ class RemoteGasStationRepository implements GasStationRepository {
       // A. Calculer le Réel (Somme des cuves correspondantes)
       double totalRealVolume = 0.0;
       double totalCapacity = 0.0;
-      double startVolumeForTheoretical = 0.0;
 
       // Filtrer les cuves qui correspondent à ce type
       final matchingTanks = tanks.where((t) => _isTankOfType(t, typeId)).toList();
@@ -222,20 +214,6 @@ class RemoteGasStationRepository implements GasStationRepository {
       for (final tank in matchingTanks) {
         totalRealVolume += tank.currentVolume ?? 0;
         totalCapacity += tank.capacityLiters ?? 0;
-
-        // Trouver le volume de départ pour cette cuve (via les logs)
-        final tankMovements = _filterMovementsForTank(movements, tank);
-        // On simule une liste vide de transactions pour juste avoir les logs
-        final logs = _buildLogEntries(tankMovements, tank, []);
-        if (logs.isNotEmpty) {
-          // Le dernier élément de la liste triée chronologiquement est le plus ancien ou le plus récent selon le tri
-          // _buildLogEntries retourne une liste triée par date (plus ancien au début normalement, vérifions la méthode)
-          // Dans _buildLogEntries: entries.sort((a, b) => a.dateTime.compareTo(b.dateTime));
-          // Donc logs.first est le plus ancien (Stock Initial de la période)
-          startVolumeForTheoretical += logs.first.volumeLiters;
-        } else {
-          startVolumeForTheoretical += tank.currentVolume ?? 0;
-        }
       }
 
       // B. Récupérer les Achats via API (ligneAchat/somme)
@@ -245,12 +223,11 @@ class RemoteGasStationRepository implements GasStationRepository {
       final sales = await _fetchTotalSales(stationIdInt, typeId);
 
       // D. Calculer le Théorique
-      // Formule: Stock Initial + Achats - Ventes
-      final theoreticalVolume = (startVolumeForTheoretical + purchases - sales)
-          .clamp(0.0, double.infinity);
+      // NOUVELLE FORMULE : Total Achats (API) - Total Ventes (API)
+      // Note : On clamp à 0 pour l'affichage, au cas où Ventes > Achats
+      final theoreticalVolume = (purchases - sales).clamp(0.0, double.infinity);
 
-      // E. Créer le résumé seulement si on a de la capacité ou des données
-      // (Ou on force l'affichage même si vide, selon votre préférence. Ici on affiche tout).
+      // E. Créer le résumé
       summaries.add(FuelSummary(
         fuelTypeName: typeName,
         totalCapacityLiters: totalCapacity,
