@@ -12,7 +12,6 @@ class TankSnapshot extends StatelessWidget {
     this.showSeeDetails = true,
     this.onTap,
     this.isSelected = false,
-    // AJOUT DE CE PARAMÈTRE
     this.useCardDecoration = true,
   });
 
@@ -21,13 +20,10 @@ class TankSnapshot extends StatelessWidget {
   final bool showSeeDetails;
   final VoidCallback? onTap;
   final bool isSelected;
-  // AJOUT DE CE PARAMÈTRE
   final bool useCardDecoration;
 
   @override
   Widget build(BuildContext context) {
-    // ... (le reste du code de build reste identique jusqu'à la décoration)
-
     final borderRadius = BorderRadius.circular(28);
     final borderColor = isSelected ? AppTheme.navy : Colors.transparent;
 
@@ -41,12 +37,12 @@ class TankSnapshot extends StatelessWidget {
         onTap: onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          // MODIFICATION ICI POUR LA DÉCORATION CONDITIONNELLE
           decoration: useCardDecoration
               ? BoxDecoration(
             color: Colors.white,
             borderRadius: borderRadius,
-            border: Border.all(color: borderColor, width: isSelected ? 2 : 0),
+            border:
+            Border.all(color: borderColor, width: isSelected ? 2 : 0),
             boxShadow: const [
               BoxShadow(
                 color: Color(0x14000000),
@@ -55,10 +51,9 @@ class TankSnapshot extends StatelessWidget {
               ),
             ],
           )
-              : null, // Pas de décoration si useCardDecoration est faux
+              : null,
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
           child: Column(
-            // ... le reste du fichier ne change pas
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
@@ -71,14 +66,20 @@ class TankSnapshot extends StatelessWidget {
                         Text.rich(
                           TextSpan(
                             text: '${tank.label} ',
-                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleSmall
+                                ?.copyWith(
                               fontWeight: FontWeight.w700,
                             ),
                             children: [
                               TextSpan(
                                 text:
                                 '${tank.capacityLiters.toStringAsFixed(0)}L',
-                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.copyWith(
                                   color: const Color(0xFF707A8A),
                                   fontWeight: FontWeight.normal,
                                 ),
@@ -88,6 +89,7 @@ class TankSnapshot extends StatelessWidget {
                         ),
                         const SizedBox(height: 6),
                         if (tank.fillPercent <= tank.warningThresholdPercent)
+                        // --- CORRECTION DU BUG D'OVERFLOW ICI ---
                           Row(
                             children: const [
                               Icon(
@@ -96,16 +98,21 @@ class TankSnapshot extends StatelessWidget {
                                 size: 18,
                               ),
                               SizedBox(width: 6),
-                              Text(
-                                'Alerte rupture de stock',
-                                style: TextStyle(
-                                  color: Color(0xFFE74C3C),
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 12,
+                              Expanded( // Ajout de Expanded pour éviter l'overflow
+                                child: Text(
+                                  'Alerte rupture de stock',
+                                  style: TextStyle(
+                                    color: Color(0xFFE74C3C),
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 12,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
                                 ),
                               ),
                             ],
                           ),
+                        // ----------------------------------------
                       ],
                     ),
                   ),
@@ -119,7 +126,9 @@ class TankSnapshot extends StatelessWidget {
                           color: const Color(0xFF38C172),
                           shape: BoxShape.circle,
                           boxShadow: [
-                            BoxShadow(color: const Color(0xFF38C172).withOpacity(0.4), blurRadius: 8),
+                            BoxShadow(
+                                color: const Color(0xFF38C172).withOpacity(0.4),
+                                blurRadius: 8),
                           ],
                         ),
                       ),
@@ -129,7 +138,8 @@ class TankSnapshot extends StatelessWidget {
                         children: [
                           Text(
                             'Dernier synchro',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            style:
+                            Theme.of(context).textTheme.bodySmall?.copyWith(
                               fontSize: 11,
                               color: const Color(0xFF7C8596),
                             ),
@@ -137,7 +147,8 @@ class TankSnapshot extends StatelessWidget {
                           const SizedBox(width: 6),
                           Text(
                             lastSyncLabel,
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            style:
+                            Theme.of(context).textTheme.bodySmall?.copyWith(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
                               color: const Color(0xFF272B36),
@@ -150,7 +161,10 @@ class TankSnapshot extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 24),
-              _HorizontalTankGauge(tank: tank, percentLabel: '${(tank.fillPercent * 100).toStringAsFixed(0)}%'),
+              _HorizontalTankGauge(
+                  tank: tank,
+                  percentLabel:
+                  '${(tank.fillPercent * 100).toStringAsFixed(0)}%'),
               const SizedBox(height: 12),
               if (showSeeDetails)
                 Align(
@@ -158,13 +172,17 @@ class TankSnapshot extends StatelessWidget {
                   child: InkWell(
                     onTap: onSeeDetails,
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 4, vertical: 4),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
                             'Afficher plus',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
                               fontWeight: FontWeight.w700,
                               color: AppTheme.navy,
                             ),
@@ -197,7 +215,6 @@ class TankSnapshot extends StatelessWidget {
   }
 }
 
-// ... Le reste du fichier (_HorizontalTankGauge, etc.) ne change pas
 class _HorizontalTankGauge extends StatelessWidget {
   const _HorizontalTankGauge({required this.tank, required this.percentLabel});
 
@@ -247,10 +264,9 @@ class _HorizontalTankGauge extends StatelessWidget {
 
         final capSize = const Size(32, 14);
 
-        // LA CORRECTION EST ICI
         final capOffset = Offset(
           connectorStart.dx - capSize.width / 2,
-          gaugeTop - capSize.height / 2, // Positionne le capuchon sur la jauge
+          gaugeTop - capSize.height / 2,
         );
 
         return SizedBox(
