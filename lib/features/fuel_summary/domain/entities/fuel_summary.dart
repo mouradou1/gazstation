@@ -1,3 +1,5 @@
+import 'dart:math';
+
 class FuelSummary {
   const FuelSummary({
     required this.fuelTypeName,
@@ -12,8 +14,10 @@ class FuelSummary {
   final double theoreticalVolumeLiters;
 
   // Propriété calculée pour le "Reste à remplir"
-  double get remainingToFillLiters => totalCapacityLiters - realVolumeLiters;
+  double get remainingToFillLiters =>
+      max(totalCapacityLiters - realVolumeLiters, 0);
 
   // Propriété calculée pour le "Manque"
-  double get shortfallLiters => theoreticalVolumeLiters - realVolumeLiters;
+  double get shortfallLiters =>
+      max(theoreticalVolumeLiters - realVolumeLiters, 0);
 }

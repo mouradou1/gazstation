@@ -48,6 +48,23 @@ class ApiClient {
     return jsonEncode(body);
   }
 
+  Object? _encodeFormBody(Object? body) {
+    if (body == null) return null;
+
+    if (body is Map) {
+      // Le client http accepte Map<String, String> pour encoder en x-www-form-urlencoded.
+      return body.map(
+        (key, value) => MapEntry(key.toString(), value?.toString() ?? ''),
+      );
+    }
+
+    if (body is String || body is List<int>) {
+      return body;
+    }
+
+    return body.toString();
+  }
+
   Future<dynamic> get(
     String path, {
     Map<String, dynamic>? queryParameters,
@@ -79,10 +96,18 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Object? body,
     Map<String, String>? headers,
+    bool formEncoded = false,
   }) async {
     final uri = _resolve(path, queryParameters);
+    final mergedHeaders = _mergeHeaders(headers);
+    if (formEncoded) {
+      mergedHeaders['Content-Type'] = 'application/x-www-form-urlencoded';
+    }
+
+    final encodedBody = formEncoded ? _encodeFormBody(body) : _encodeBody(body);
+
     final response = await _httpClient
-        .post(uri, headers: _mergeHeaders(headers), body: _encodeBody(body))
+        .post(uri, headers: mergedHeaders, body: encodedBody)
         .timeout(timeout);
 
     if (response.statusCode < 200 || response.statusCode >= 300) {

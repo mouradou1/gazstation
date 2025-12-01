@@ -43,6 +43,7 @@ class TankDto {
     required this.id,
     required this.stationId,
     required this.label,
+    this.fuelType,
     this.capacityLiters,
     this.currentVolume,
     this.currentHeight,
@@ -69,6 +70,31 @@ class TankDto {
       return double.tryParse(value.toString());
     }
 
+    int? parseInt(dynamic value) {
+      if (value == null) {
+        return null;
+      }
+      if (value is num) {
+        return value.toInt();
+      }
+      return int.tryParse(value.toString());
+    }
+
+    int? parseFuelType() {
+      final parsed =
+          parseInt(json['TypeProduit']) ??
+          parseInt(json['typeProduit']) ??
+          parseInt(json['type']) ??
+          parseInt(json['Type']) ??
+          parseInt(json['TypeCarburant']) ??
+          parseInt(json['typeCarburant']) ??
+          parseInt(json['CarburantID']);
+      if (parsed == null || parsed == 0) {
+        return null;
+      }
+      return parsed;
+    }
+
     return TankDto(
       id: json['id'] as int,
       stationId: json['StationID'] as int,
@@ -76,13 +102,23 @@ class TankDto {
       label: (json['Libelle'] as String?)?.trim().isNotEmpty == true
           ? (json['Libelle'] as String).trim()
           : 'Cuve ${json['id']}',
+      // Certains backends exposent le type de carburant sur la cuve : on le capture si présent.
+      fuelType: parseFuelType(),
       capacityLiters:
           parseDouble(json['Volume']) ??
-          parseDouble(json['VolumeLitreCalculer']),
+          parseDouble(json['volume']) ??
+          parseDouble(json['VolumeLitreCalculer']) ??
+          parseDouble(json['volumeLitreCalculer']),
       currentVolume:
           parseDouble(json['NiveauLitre']) ??
-          parseDouble(json['VolumeLitreCalculer']),
-      currentHeight: parseDouble(json['Niveau']) ?? parseDouble(json['calibr']),
+          parseDouble(json['niveauLitre']) ??
+          parseDouble(json['VolumeLitreCalculer']) ??
+          parseDouble(json['volumeLitreCalculer']),
+      currentHeight:
+          parseDouble(json['Niveau']) ??
+          parseDouble(json['niveau']) ??
+          parseDouble(json['calibr']) ??
+          parseDouble(json['Calibr']),
       warningThresholdPercent: json['Token'] is num
           ? (json['Token'] as num).toDouble() / 100
           : null,
@@ -96,6 +132,7 @@ class TankDto {
   final int stationId;
   final int? localId;
   final String label;
+  final int? fuelType;
   final double? capacityLiters;
   final double? currentVolume;
   final double? currentHeight;
