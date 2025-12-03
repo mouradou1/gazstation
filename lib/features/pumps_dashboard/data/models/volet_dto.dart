@@ -6,6 +6,7 @@ class VoletDto {
     required this.label,
     required this.initialIndex,
     required this.currentIndex,
+    this.nozzleNumber,
   });
 
   factory VoletDto.fromJson(Map<String, dynamic> json) {
@@ -15,6 +16,12 @@ class VoletDto {
       return double.tryParse(value.toString());
     }
 
+    int? parseInt(dynamic value) {
+      if (value == null) return null;
+      if (value is num) return value.toInt();
+      return int.tryParse(value.toString());
+    }
+
     return VoletDto(
       id: json['id'] as int,
       pumpId: json['IDPump2'] as int,
@@ -22,6 +29,13 @@ class VoletDto {
       label: (json['Libelle'] as String?)?.trim() ?? '',
       initialIndex: parseDouble(json['IndexInitial']) ?? 0.0,
       currentIndex: parseDouble(json['indexActuel']) ?? 0.0,
+      // num_nazel est l'identifiant métier attendu côté transactions (champ Nozzle).
+      // Fallback sur IDLocal si num_nazel n'est pas présent, puis sur id.
+      nozzleNumber:
+          parseInt(json['num_nazel']) ??
+          parseInt(json['Num_Nazel']) ??
+          parseInt(json['IDLocal']) ??
+          parseInt(json['id']),
     );
   }
 
@@ -29,6 +43,7 @@ class VoletDto {
   final int pumpId;
   final int type;
   final String label;
+  final int? nozzleNumber;
   final double initialIndex;
   final double currentIndex;
 

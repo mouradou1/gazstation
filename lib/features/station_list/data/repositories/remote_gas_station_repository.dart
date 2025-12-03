@@ -188,24 +188,86 @@ class RemoteGasStationRepository implements GasStationRepository {
     final volets = results[1] as List<VoletDto>;
     final transactions = results[2] as List<PumpTransactionDto>;
 
-    final nozzlesByPumpId = <int, List<Nozzle>>{};
+    // Construction de la correspondance nozzle -> pompe en priorisant les transactions (Pump/Nozzle),
+    // puis en complétant avec les volets qui n'ont pas de transaction.
+    final voletsByNozzleId = <int, VoletDto>{};
     for (final volet in volets) {
-      final nozzle = Nozzle(
-        id: volet.id,
-        label: volet.label,
-        fuelType: volet.type,
-        volume: volet.volume,
+      final nozzleId = volet.nozzleNumber ?? volet.id;
+      voletsByNozzleId[nozzleId] = volet;
+    }
+
+    final nozzleIdsByPumpId = <int, Set<int>>{};
+    final gradeByNozzleId = <int, int>{};
+    final claimedNozzles = <int>{};
+
+    // Canonicalisation stricte : seules les IDs renvoyées par pump2 sont acceptées.
+    final canonicalPumpId = <int, int>{for (final p in pumps) p.id: p.id};
+
+    int? _normalizePumpId(int pumpId) => canonicalPumpId[pumpId];
+
+    void _attach(int pumpKey, int nozzleId) {
+      (nozzleIdsByPumpId[pumpKey] ??= <int>{}).add(nozzleId);
+    }
+
+    for (final tx in transactions) {
+      final pumpId = tx.pumpId;
+      final nozzleId = tx.nozzleId;
+      if (pumpId == null || nozzleId == null) continue;
+
+      gradeByNozzleId.putIfAbsent(nozzleId, () => tx.fuelGradeId ?? 0);
+      final normalizedPumpId = _normalizePumpId(pumpId);
+      if (normalizedPumpId != null) {
+        _attach(normalizedPumpId, nozzleId);
+        claimedNozzles.add(nozzleId);
+      }
+    }
+
+    for (final volet in volets) {
+      final nozzleId = volet.nozzleNumber ?? volet.id;
+      if (claimedNozzles.contains(nozzleId))
+        continue; // déjà mappé via transaction
+
+      final normalizedPumpId = _normalizePumpId(volet.pumpId);
+      if (normalizedPumpId != null) {
+        _attach(normalizedPumpId, nozzleId);
+      }
+    }
+
+    int _fuelTypeFromGradeId(int? gradeId) {
+      switch (gradeId) {
+        case 2:
+          return 1; // DZL
+        case 1:
+          return 2; // ESS
+        case 3:
+          return 3; // GPL
+        default:
+          return 0;
+      }
+    }
+
+    Nozzle _buildNozzle(int nozzleId) {
+      final volet = voletsByNozzleId[nozzleId];
+      final label = (volet?.label.isNotEmpty ?? false)
+          ? volet!.label
+          : 'Volet $nozzleId';
+      final fuelType =
+          volet?.type ?? _fuelTypeFromGradeId(gradeByNozzleId[nozzleId]);
+      final volume = volet?.volume ?? 0;
+      return Nozzle(
+        id: nozzleId,
+        label: label,
+        fuelType: fuelType,
+        volume: volume,
       );
-      (nozzlesByPumpId[volet.pumpId] ??= []).add(nozzle);
     }
 
     final pumpEntities = pumps.map((pumpDto) {
-      final pumpKey = pumpDto.localId ?? pumpDto.id;
-      return Pump(
-        id: pumpDto.id,
-        label: pumpDto.label,
-        nozzles: nozzlesByPumpId[pumpKey] ?? const <Nozzle>[],
-      );
+      final ids = nozzleIdsByPumpId[pumpDto.id] ?? const <int>{};
+
+      final nozzles = ids.map(_buildNozzle).toList();
+
+      return Pump(id: pumpDto.id, label: pumpDto.label, nozzles: nozzles);
     }).toList();
 
     return (pumps: pumpEntities, transactions: transactions);

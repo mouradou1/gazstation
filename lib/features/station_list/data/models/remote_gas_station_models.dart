@@ -151,6 +151,7 @@ class PumpTransactionDto {
     this.totalVolume,
     this.amount,
     this.dateTime,
+    this.fuelGradeId,
     this.fuelGradeName, // CHAMP AJOUTÉ
   });
 
@@ -163,6 +164,16 @@ class PumpTransactionDto {
         return value.toDouble();
       }
       return double.tryParse(value.toString());
+    }
+
+    int? parseInt(dynamic value) {
+      if (value == null) {
+        return null;
+      }
+      if (value is num) {
+        return value.toInt();
+      }
+      return int.tryParse(value.toString());
     }
 
     DateTime? parseDate(String? raw) {
@@ -184,6 +195,7 @@ class PumpTransactionDto {
       dateTime:
           parseDate(json['DateTime'] as String?) ??
           parseDate(json['DateTimeStart'] as String?),
+      fuelGradeId: parseInt(json['FuelGradeId']),
       fuelGradeName: json['FuelGradeName'] as String?, // CHAMP AJOUTÉ
     );
   }
@@ -197,6 +209,7 @@ class PumpTransactionDto {
   final double? totalVolume;
   final double? amount;
   final DateTime? dateTime;
+  final int? fuelGradeId;
   final String? fuelGradeName; // CHAMP AJOUTÉ
 }
 
